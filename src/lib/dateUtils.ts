@@ -195,7 +195,7 @@ export function getDaySchedule(dateStr: string): DaySchedule {
 }
 
 /**
- * Checks punctuality against a 30-minute grace period from shift start time.
+ * Checks punctuality against a 30-minute relaxation / grace period from shift start time.
  * If user clocks in > 30 minutes after start time, they are marked Late.
  */
 export function checkPunctuality(
@@ -205,18 +205,130 @@ export function checkPunctuality(
   isLate: boolean;
   minutesFromStart: number;
   minutesPastGrace: number;
-  graceLimitTime: string;
+  shiftStartTimeFormatted: string;
+  relaxationLimitTime: string;
+  clockInTimeFormatted: string;
   label: string;
+  shortBadge: string;
   badgeClass: string;
 } {
+  // Parse shiftStart into hours and minutes
+  let startH = 9;
+  let startM = 30;
+  if (shiftStart) {
+    const parts = shiftStart.split(':').map(Number);
+    if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      startH = parts[0];
+      startM = parts[1];
+    }
+  }
+
+  const shiftStartMinutes = startH * 60 + startM;
+  const relaxationLimitMinutes = shiftStartMinutes + 30; // 30 minutes relaxation window
+  const limitH = Math.floor(relaxationLimitMinutes / 60) % 24;
+  const limitM = relaxationLimitMinutes % 60;
+  const relaxationLimitStr = `${limitH % 12 === 0 ? 12 : limitH % 12}:${String(limitM).padStart(2, '0')} ${limitH >= 12 ? 'PM' : 'AM'}`;
+  const shiftStartFormatted = `${startH % 12 === 0 ? 12 : startH % 12}:${String(startM).padStart(2, '0')} ${startH >= 12 ? 'PM' : 'AM'}`;
+
   if (!firstLoginAt) {
     return {
       isLate: false,
       minutesFromStart: 0,
       minutesPastGrace: 0,
-      graceLimitTime: '',
+      shiftStartTimeFormatted: shiftStartFormatted,
+      relaxationLimitTime: relaxationLimitStr,
+      clockInTimeFormatted: '--:--',
       label: 'No Clock In',
+      shortBadge: 'OFF CLOCK',
       badgeClass: 'bg-slate-800 text-slate-400 border-slate-700',
+    };
+  }
+
+  // Parse firstLoginAt
+  let loginMinutes = 0;
+  let clockInTimeFormatted = '--:--';
+  if (firstLoginAt.includes('T')) {
+    // ISO string
+    const d = new Date(firstLoginAt);
+    loginMinutes = d.getHours() * 60 + d.getMinutes();
+    clockInTimeFormatted = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  } else if (firstLoginAt.includes(':')) {
+    const parts = firstLoginAt.split(':').map(Number);
+    loginMinutes = parts[0] * 60 + parts[1];
+    const h = parts[0];
+    const m = parts[1];
+    clockInTimeFormatted = `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+  }
+
+  const minutesFromStart = loginMinutes - shiftStartMinutes;
+  const minutesPastGrace = loginMinutes - relaxationLimitMinutes;
+
+  if (loginMinutes > relaxationLimitMinutes) {
+    return {
+      isLate: true,
+      minutesFromStart,
+      minutesPastGrace,
+      shiftStartTimeFormatted: shiftStartFormatted,
+      relaxationLimitTime: relaxationLimitStr,
+      clockInTimeFormatted,
+      label: `Late by ${minutesFromStart}m (${minutesPastGrace}m past 30m relaxation)`,
+      shortBadge: `LATE (+${minutesFromStart}m)`,
+      badgeClass: 'bg-rose-950/80 text-rose-300 border-rose-700 shadow-sm shadow-rose-950/50',
+    };
+  } else if (minutesFromStart > 0) {
+    return {
+      isLate: false,
+      minutesFromStart,
+      minutesPastGrace: 0,
+      shiftStartTimeFormatted: shiftStartFormatted,
+      relaxationLimitTime: relaxationLimitStr,
+      clockInTimeFormatted,
+      label: `On Time (${minutesFromStart}m grace used)`,
+      shortBadge: 'ON TIME',
+      badgeClass: 'bg-emerald-950/70 text-emerald-300 border-emerald-800/70',
+    };
+  } else {
+    return {
+      isLate: false,
+      minutesFromStart,
+      minutesPastGrace: 0,
+      shiftStartTimeFormatted: shiftStartFormatted,
+      relaxationLimitTime: relaxationLimitStr,
+      clockInTimeFormatted,
+      label: 'Early / On Time',
+      shortBadge: 'ON TIME',
+      badgeClass: 'bg-emerald-950/70 text-emerald-300 border-emerald-800/70',
+    };
+  }
+}
+
+/**
+ * Checks live arrival status of a user today in real time.
+ * If user hasn't clocked in and current time is past 30m relaxation on a working day, marks them overdue late.
+ */
+export function checkLiveArrivalStatus(
+  shiftStart: string = '09:30',
+  firstLoginAt?: string,
+  isWorkingDay: boolean = true
+): {
+  isLate: boolean;
+  isOverdue: boolean;
+  hasClockedIn: boolean;
+  minutesFromStart: number;
+  minutesPastGrace: number;
+  shiftStartTimeFormatted: string;
+  relaxationLimitTime: string;
+  clockInTimeFormatted: string;
+  label: string;
+  shortBadge: string;
+  badgeClass: string;
+} {
+  if (firstLoginAt) {
+    const punct = checkPunctuality(shiftStart, firstLoginAt);
+    return {
+      ...punct,
+      isOverdue: false,
+      hasClockedIn: true,
     };
   }
 
@@ -232,53 +344,62 @@ export function checkPunctuality(
   }
 
   const shiftStartMinutes = startH * 60 + startM;
-  const graceLimitMinutes = shiftStartMinutes + 30; // 30 minutes grace period
-  const graceLimitH = Math.floor(graceLimitMinutes / 60) % 24;
-  const graceLimitM = graceLimitMinutes % 60;
-  const gracePeriodStr = `${graceLimitH % 12 === 0 ? 12 : graceLimitH % 12}:${String(graceLimitM).padStart(2, '0')} ${graceLimitH >= 12 ? 'PM' : 'AM'}`;
+  const relaxationLimitMinutes = shiftStartMinutes + 30;
+  const limitH = Math.floor(relaxationLimitMinutes / 60) % 24;
+  const limitM = relaxationLimitMinutes % 60;
+  const relaxationLimitStr = `${limitH % 12 === 0 ? 12 : limitH % 12}:${String(limitM).padStart(2, '0')} ${limitH >= 12 ? 'PM' : 'AM'}`;
+  const shiftStartFormatted = `${startH % 12 === 0 ? 12 : startH % 12}:${String(startM).padStart(2, '0')} ${startH >= 12 ? 'PM' : 'AM'}`;
 
-  // Parse firstLoginAt
-  let loginMinutes = 0;
-  if (firstLoginAt.includes('T')) {
-    // ISO string
-    const d = new Date(firstLoginAt);
-    loginMinutes = d.getHours() * 60 + d.getMinutes();
-  } else if (firstLoginAt.includes(':')) {
-    const parts = firstLoginAt.split(':').map(Number);
-    loginMinutes = parts[0] * 60 + parts[1];
+  if (!isWorkingDay) {
+    return {
+      isLate: false,
+      isOverdue: false,
+      hasClockedIn: false,
+      minutesFromStart: 0,
+      minutesPastGrace: 0,
+      shiftStartTimeFormatted: shiftStartFormatted,
+      relaxationLimitTime: relaxationLimitStr,
+      clockInTimeFormatted: '--:--',
+      label: 'Off Day',
+      shortBadge: 'OFF DAY',
+      badgeClass: 'bg-slate-800/80 text-slate-400 border-slate-700',
+    };
   }
 
-  const minutesFromStart = loginMinutes - shiftStartMinutes;
-  const minutesPastGrace = loginMinutes - graceLimitMinutes;
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const minutesFromStart = nowMinutes - shiftStartMinutes;
+  const minutesPastGrace = nowMinutes - relaxationLimitMinutes;
 
-  if (loginMinutes > graceLimitMinutes) {
+  if (nowMinutes > relaxationLimitMinutes) {
     return {
       isLate: true,
+      isOverdue: true,
+      hasClockedIn: false,
       minutesFromStart,
       minutesPastGrace,
-      graceLimitTime: gracePeriodStr,
-      label: `Late by ${minutesFromStart}m (${minutesPastGrace}m past grace)`,
-      badgeClass: 'bg-rose-950/80 text-rose-300 border-rose-800',
-    };
-  } else if (minutesFromStart > 0) {
-    return {
-      isLate: false,
-      minutesFromStart,
-      minutesPastGrace: 0,
-      graceLimitTime: gracePeriodStr,
-      label: `On Time (${minutesFromStart}m grace used)`,
-      badgeClass: 'bg-emerald-950/70 text-emerald-300 border-emerald-800/70',
-    };
-  } else {
-    return {
-      isLate: false,
-      minutesFromStart,
-      minutesPastGrace: 0,
-      graceLimitTime: gracePeriodStr,
-      label: 'Early / On Time',
-      badgeClass: 'bg-emerald-950/70 text-emerald-300 border-emerald-800/70',
+      shiftStartTimeFormatted: shiftStartFormatted,
+      relaxationLimitTime: relaxationLimitStr,
+      clockInTimeFormatted: 'Not Arrived',
+      label: `Overdue by ${minutesFromStart}m (${minutesPastGrace}m past 30m relaxation)`,
+      shortBadge: `LATE (${minutesPastGrace}m OVERDUE)`,
+      badgeClass: 'bg-rose-950/90 text-rose-300 border-rose-700 shadow-sm shadow-rose-950/50 animate-pulse',
     };
   }
+
+  return {
+    isLate: false,
+    isOverdue: false,
+    hasClockedIn: false,
+    minutesFromStart: Math.max(0, minutesFromStart),
+    minutesPastGrace: 0,
+    shiftStartTimeFormatted: shiftStartFormatted,
+    relaxationLimitTime: relaxationLimitStr,
+    clockInTimeFormatted: 'Not Clocked In',
+    label: nowMinutes >= shiftStartMinutes ? `Within 30m Grace (Relaxation ends ${relaxationLimitStr})` : `Shift starts at ${shiftStartFormatted}`,
+    shortBadge: 'PENDING ARRIVAL',
+    badgeClass: 'bg-amber-950/50 text-amber-300 border-amber-800/50',
+  };
 }
 
 /**

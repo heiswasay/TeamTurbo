@@ -10,7 +10,15 @@ import {
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { AttendanceRecord, AttendanceSession } from '../../types';
-import { getTodayDateString, formatDuration, formatTime, getDayOfWeek } from '../../lib/dateUtils';
+import { 
+  getTodayDateString, 
+  formatDuration, 
+  formatTime, 
+  getDayOfWeek, 
+  getDaySchedule,
+  checkPunctuality,
+  checkLiveArrivalStatus 
+} from '../../lib/dateUtils';
 import { 
   Clock, 
   LogIn, 
@@ -20,7 +28,10 @@ import {
   Timer,
   ChevronDown,
   ChevronUp,
-  Sparkles
+  Sparkles,
+  AlertCircle,
+  CheckCircle2,
+  ShieldAlert
 } from 'lucide-react';
 
 interface AttendanceWidgetProps {
@@ -42,8 +53,17 @@ export const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({
   const [showLogoffWarning, setShowLogoffWarning] = useState(false);
   const [showSessionsDrawer, setShowSessionsDrawer] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [currentTimeTick, setCurrentTimeTick] = useState<number>(Date.now());
 
   const attendanceDocId = `${currentUser?.uid}_${todayStr}`;
+
+  // Periodically refresh current time every 10 seconds to update live overdue calculation if not clocked in
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTimeTick(Date.now());
+    }, 10000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Listen to today's attendance record
   useEffect(() => {
@@ -108,6 +128,11 @@ export const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
 
+  const daySchedule = getDaySchedule(todayStr);
+  const userShiftStart = userProfile?.shiftStart || '10:30';
+  const firstLogin = attendance?.firstLoginAt || attendance?.sessions?.[0]?.loginAt;
+  const punctualityInfo = checkLiveArrivalStatus(userShiftStart, firstLogin, daySchedule.isWorkingDay);
+
   const handleLoginClick = async () => {
     if (!currentUser) return;
     setActionLoading(true);
@@ -115,6 +140,8 @@ export const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({
       const nowIso = new Date().toISOString();
       const docRef = doc(db, 'attendance', attendanceDocId);
       const existingDoc = await getDoc(docRef);
+
+      const punctuality = checkPunctuality(userShiftStart, nowIso);
 
       const newSession: AttendanceSession = {
         loginAt: nowIso,
@@ -129,6 +156,10 @@ export const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({
           sessions: [newSession],
           totalMinutes: 0,
           status: 'active',
+          isLate: punctuality.isLate,
+          lateMinutes: punctuality.minutesFromStart,
+          latePastGraceMinutes: punctuality.minutesPastGrace,
+          firstLoginAt: nowIso,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         };
@@ -136,11 +167,22 @@ export const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({
       } else {
         const data = existingDoc.data() as AttendanceRecord;
         const updatedSessions = [...(data.sessions || []), newSession];
-        await updateDoc(docRef, {
+        const isFirstSession = !data.firstLoginAt && (!data.sessions || data.sessions.length === 0);
+
+        const updatePayload: Partial<AttendanceRecord> = {
           sessions: updatedSessions,
           status: 'active',
           updatedAt: serverTimestamp(),
-        });
+        };
+
+        if (isFirstSession) {
+          updatePayload.firstLoginAt = nowIso;
+          updatePayload.isLate = punctuality.isLate;
+          updatePayload.lateMinutes = punctuality.minutesFromStart;
+          updatePayload.latePastGraceMinutes = punctuality.minutesPastGrace;
+        }
+
+        await updateDoc(docRef, updatePayload);
       }
     } catch (err) {
       console.error('Failed to log in session:', err);
@@ -201,15 +243,17 @@ export const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({
   const sessionsCount = attendance?.sessions?.length || 0;
 
   return (
-    <div className={`bg-[#161B27] border border-slate-800 rounded-3xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between transition-all ${
-      isSessionActive 
-        ? 'ring-1 ring-indigo-500/40' 
-        : ''
+    <div className={`bg-[#161B27] border rounded-3xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between transition-all ${
+      punctualityInfo.isLate && (!attendance || attendance.isLate)
+        ? 'border-rose-700/60 ring-1 ring-rose-500/20'
+        : isSessionActive 
+        ? 'border-indigo-500/40 ring-1 ring-indigo-500/40' 
+        : 'border-slate-800'
     } ${className}`}>
       
       {/* Decorative accent glow */}
       <div className={`absolute -top-12 -right-12 w-40 h-40 rounded-full blur-2xl opacity-15 pointer-events-none ${
-        isSessionActive ? 'bg-indigo-500' : 'bg-emerald-500'
+        punctualityInfo.isLate ? 'bg-rose-500' : isSessionActive ? 'bg-indigo-500' : 'bg-emerald-500'
       }`} />
 
       {/* Top Bar: Title & Live Status Pill */}
@@ -217,7 +261,9 @@ export const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2">
             <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
-              isSessionActive 
+              punctualityInfo.isLate
+                ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
+                : isSessionActive 
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' 
                 : 'bg-[#1F2636] text-slate-300 border border-slate-700/60'
             }`}>
@@ -233,21 +279,39 @@ export const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({
             </div>
           </div>
 
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
-            isSessionActive
-              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-              : attendance
-              ? 'bg-slate-800 text-slate-400 border border-slate-700/80'
-              : 'bg-[#1F2636] text-slate-400 border border-slate-700/60'
-          }`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${isSessionActive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
-            {isSessionActive ? 'Active' : attendance ? 'Clocked Out' : 'Idle'}
-          </span>
+          <div className="flex items-center gap-1.5">
+            {/* Punctuality Status Badge */}
+            {punctualityInfo.isLate && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
+                <AlertCircle className="w-3 h-3 text-rose-400" />
+                {attendance?.firstLoginAt ? 'LATE ARRIVAL' : 'OVERDUE LATE'}
+              </span>
+            )}
+            {!punctualityInfo.isLate && punctualityInfo.hasClockedIn && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                ON TIME
+              </span>
+            )}
+
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+              isSessionActive
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                : attendance
+                ? 'bg-slate-800 text-slate-400 border border-slate-700/80'
+                : 'bg-[#1F2636] text-slate-400 border border-slate-700/60'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${isSessionActive ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`} />
+              {isSessionActive ? 'Active' : attendance ? 'Clocked Out' : 'Idle'}
+            </span>
+          </div>
         </div>
 
         {/* Center Display: Digital Clock Display */}
         <div className={`rounded-2xl p-4 my-2 text-center transition-all ${
-          isSessionActive 
+          punctualityInfo.isLate && !attendance
+            ? 'bg-rose-950/20 border border-rose-600/30'
+            : isSessionActive 
             ? 'bg-indigo-600/10 border border-indigo-500/30' 
             : 'bg-[#1F2636] border border-slate-700/60'
         }`}>
@@ -271,12 +335,44 @@ export const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({
             </div>
           )}
 
-          {/* Shift Schedule Subtext */}
+          {/* Shift Schedule & Relaxation Cutoff Subtext */}
           <div className="mt-2 pt-2 border-t border-slate-700/40 flex items-center justify-between text-[11px] text-slate-400">
-            <span>Shift: <strong className="text-slate-200">{userProfile?.shiftStart || '10:30'} – {userProfile?.shiftEnd || '18:30'}</strong></span>
-            <span>Target: <strong className="text-indigo-400">{expectedHours}h</strong></span>
+            <span>Shift: <strong className="text-slate-200">{userShiftStart} – {userProfile?.shiftEnd || '18:30'}</strong></span>
+            <span>Relaxation Cutoff: <strong className="text-amber-400">{punctualityInfo.relaxationLimitTime}</strong></span>
           </div>
         </div>
+
+        {/* Punctuality Alert Banner */}
+        {punctualityInfo.isLate && (
+          <div className="mb-2 p-3 bg-rose-950/40 border border-rose-500/40 rounded-2xl flex items-start gap-2.5 text-xs text-rose-200">
+            <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold text-rose-300">
+                {attendance?.firstLoginAt ? 'Late Clock-in Recorded:' : 'Late Arrival Notice:'}
+              </span>
+              <p className="text-[11px] text-rose-200/90 mt-0.5 leading-relaxed">
+                {attendance?.firstLoginAt ? (
+                  <>
+                    Clocked in at <strong>{punctualityInfo.clockInTimeFormatted}</strong> ({punctualityInfo.minutesFromStart}m from start, {punctualityInfo.minutesPastGrace}m past 30m relaxation period). You have been marked <strong>LATE</strong> for today.
+                  </>
+                ) : (
+                  <>
+                    Shift started at <strong>{punctualityInfo.shiftStartTimeFormatted}</strong>. The 30m relaxation grace expired at <strong>{punctualityInfo.relaxationLimitTime}</strong>. You are currently <strong>{punctualityInfo.minutesFromStart}m late</strong> ({punctualityInfo.minutesPastGrace}m overdue) and will be marked <strong>LATE</strong> upon clocking in.
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {!punctualityInfo.isLate && punctualityInfo.hasClockedIn && (
+          <div className="mb-2 px-3 py-2 bg-emerald-950/30 border border-emerald-500/30 rounded-2xl flex items-center gap-2 text-xs text-emerald-300">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span className="text-[11px]">
+              Clocked in at <strong>{punctualityInfo.clockInTimeFormatted}</strong> — On Time (Within 30m relaxation grace).
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Bottom Section: Primary Action Button & Sessions Toggle */}
@@ -296,10 +392,18 @@ export const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({
             id="attendance-login-btn"
             onClick={handleLoginClick}
             disabled={actionLoading}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white font-bold py-2.5 px-4 rounded-xl shadow-lg shadow-indigo-600/20 transition-all text-xs flex items-center justify-center gap-2"
+            className={`w-full font-bold py-2.5 px-4 rounded-xl shadow-lg transition-all text-xs flex items-center justify-center gap-2 active:scale-[0.98] ${
+              punctualityInfo.isLate && !attendance
+                ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/25'
+                : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20'
+            }`}
           >
             <LogIn className="w-4 h-4" />
-            {actionLoading ? 'Starting...' : 'Clock In (Start Shift)'}
+            {actionLoading
+              ? 'Starting...'
+              : punctualityInfo.isLate && !attendance
+              ? `Clock In (Mark Late • +${punctualityInfo.minutesFromStart}m)`
+              : 'Clock In (Start Shift)'}
           </button>
         )}
 
@@ -380,3 +484,4 @@ export const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({
     </div>
   );
 };
+

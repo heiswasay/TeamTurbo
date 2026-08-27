@@ -1,6 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { WorkEntry, UserProfile, ReviewStatus, AttendanceRecord } from '../../types';
-import { formatDateLabel, getTodayDateString, getDayOfWeek } from '../../lib/dateUtils';
+import { 
+  formatDateLabel, 
+  getTodayDateString, 
+  getDayOfWeek,
+  getDaySchedule,
+  checkPunctuality,
+  checkLiveArrivalStatus,
+  formatTime
+} from '../../lib/dateUtils';
 import { AttendanceWidget } from '../member/AttendanceWidget';
 import { 
   Activity, 
@@ -16,7 +24,10 @@ import {
   Send,
   Timer,
   PlayCircle,
-  StopCircle
+  StopCircle,
+  AlertTriangle,
+  ShieldAlert,
+  UserX
 } from 'lucide-react';
 
 interface AdminLiveTodayProps {
@@ -149,6 +160,7 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
   adminName,
 }) => {
   const todayStr = getTodayDateString();
+  const daySchedule = useMemo(() => getDaySchedule(todayStr), [todayStr]);
   const todayEntries = (entries || []).filter((e) => e.date === todayStr);
 
   // Group entries by member
@@ -182,9 +194,38 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
     return map;
   }, [attendanceRecords, todayStr]);
 
-  const currentlyClockedInCount = teamMembers.filter(
-    (m) => m.active !== false && attendanceByUser.get(m.uid)?.status === 'active'
+  const activeStaffList = useMemo(() => {
+    return teamMembers.filter((m) => m.active !== false);
+  }, [teamMembers]);
+
+  const currentlyClockedInCount = activeStaffList.filter(
+    (m) => attendanceByUser.get(m.uid)?.status === 'active'
   ).length;
+
+  // Analyze punctuality and late arrivals for each team member today
+  const teamPunctualityList = useMemo(() => {
+    return activeStaffList.map((member) => {
+      const att = attendanceByUser.get(member.uid);
+      const firstLogin = att?.firstLoginAt || att?.sessions?.[0]?.loginAt;
+      const punct = checkLiveArrivalStatus(
+        member.shiftStart || '10:30',
+        firstLogin,
+        daySchedule.isWorkingDay
+      );
+
+      return {
+        member,
+        attendance: att,
+        firstLogin,
+        punct,
+      };
+    });
+  }, [activeStaffList, attendanceByUser, daySchedule]);
+
+  // Filter members who are marked late (clocked in late) OR overdue (have not arrived yet past 30m grace)
+  const lateMembersList = useMemo(() => {
+    return teamPunctualityList.filter((item) => item.punct.isLate);
+  }, [teamPunctualityList]);
 
   return (
     <div className="space-y-6">
@@ -217,7 +258,7 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
                 Today's Live Team Activity
               </h2>
               <p className="text-xs text-slate-400 mt-1">
-                Live real-time feed of work accomplishments and live shift timers across all active staff
+                Live real-time feed of work accomplishments, 30m relaxation punctuality tracking, and shift timers
               </p>
             </div>
           </div>
@@ -239,8 +280,15 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
               </div>
               <div className="h-7 w-px bg-slate-700" />
               <div>
+                <span className={`text-xl font-black ${lateMembersList.length > 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                  {lateMembersList.length}
+                </span>
+                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Late Arrivals</p>
+              </div>
+              <div className="h-7 w-px bg-slate-700" />
+              <div>
                 <span className="text-xl font-black text-indigo-400">
-                  {activeMembersCount}/{teamMembers.filter(m => m.active !== false).length}
+                  {activeMembersCount}/{activeStaffList.length}
                 </span>
                 <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Logged Work</p>
               </div>
@@ -248,119 +296,224 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
 
             <div className="text-right hidden sm:block">
               <p className="text-[11px] text-slate-400">Supervising Lead: <strong className="text-indigo-400">{adminName}</strong></p>
-              <p className="text-[10px] text-slate-500">Live time clocks tick second by second</p>
+              <p className="text-[10px] text-slate-500">Grace threshold: 30 minutes from shift start</p>
             </div>
           </div>
         </div>
 
       </div>
 
+      {/* DEDICATED LATE & OVERDUE ARRIVALS SECTION */}
+      {lateMembersList.length > 0 ? (
+        <div className="bg-rose-950/20 border border-rose-600/40 rounded-3xl p-5 shadow-2xl relative overflow-hidden space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-rose-500/20 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-rose-500/20 border border-rose-500/40 rounded-xl text-rose-400">
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-rose-200 flex items-center gap-2">
+                  <span>🚨 Late & Overdue Staff Arrivals Today ({lateMembersList.length})</span>
+                </h3>
+                <p className="text-xs text-rose-300/80">
+                  These employees arrived or are clocking in after the 30-minute relaxation threshold
+                </p>
+              </div>
+            </div>
+
+            <span className="px-3 py-1 bg-rose-500/20 border border-rose-500/40 text-rose-300 rounded-full text-xs font-black uppercase tracking-wider">
+              {lateMembersList.length} Marked Late
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {lateMembersList.map(({ member, attendance: att, punct }) => (
+              <div
+                key={`late-card-${member.uid}`}
+                className="bg-[#161B27]/90 border border-rose-600/30 rounded-2xl p-4 flex flex-col justify-between hover:border-rose-500/50 transition-all shadow-md"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-rose-600 font-bold text-white shadow-lg shadow-rose-600/30 flex items-center justify-center text-sm border border-rose-400/30 shrink-0">
+                      {member.name.charAt(0)}
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white leading-snug">
+                        {member.name}
+                      </h4>
+                      <p className="text-xs text-slate-400">
+                        {member.designation}
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm animate-pulse shrink-0">
+                    {punct.hasClockedIn ? `LATE (+${punct.minutesFromStart}m)` : `OVERDUE (+${punct.minutesPastGrace}m)`}
+                  </span>
+                </div>
+
+                <div className="mt-3 pt-2.5 border-t border-slate-800/80 space-y-1.5 text-xs text-slate-300">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-400">Shift Start:</span>
+                    <span className="font-semibold text-slate-200">{punct.shiftStartTimeFormatted}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-400">30m Relaxation Cutoff:</span>
+                    <span className="font-semibold text-amber-400">{punct.relaxationLimitTime}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-400">Clock-In Time:</span>
+                    <span className="font-bold text-rose-300">{punct.clockInTimeFormatted}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-800">
+                    <span className="text-rose-400 font-semibold">Violation:</span>
+                    <span className="font-bold text-rose-300">
+                      {punct.hasClockedIn
+                        ? `${punct.minutesPastGrace}m past 30m relaxation`
+                        : `${punct.minutesPastGrace}m overdue (Not arrived yet)`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : daySchedule.isWorkingDay ? (
+        <div className="bg-emerald-950/20 border border-emerald-500/30 rounded-3xl p-4 flex items-center justify-between gap-3 text-xs text-emerald-300">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            <span>
+              <strong>Punctuality Status:</strong> All team members who have clocked in arrived on time within the 30-minute relaxation threshold today.
+            </span>
+          </div>
+          <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-300 rounded-full text-[11px] font-bold shrink-0">
+            0 Late
+          </span>
+        </div>
+      ) : null}
+
       {/* Quick Team Shift Clocks Overview Strip */}
       <div className="bg-[#161B27] border border-slate-800 rounded-3xl p-5 shadow-xl space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
             <Timer className="w-4 h-4 text-emerald-400" />
-            Live Member Shift Timers
+            Live Member Shift Timers & Punctuality
           </h3>
           <span className="text-[11px] text-slate-400">
-            {currentlyClockedInCount} of {teamMembers.filter(m => m.active !== false).length} active now
+            {currentlyClockedInCount} of {activeStaffList.length} active now
           </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
-          {teamMembers
-            .filter((m) => m.active !== false)
-            .map((member) => {
-              const att = attendanceByUser.get(member.uid);
-              return (
-                <div
-                  key={`quick-clock-${member.uid}`}
-                  className="bg-[#1F2636] border border-slate-700/70 p-3 rounded-2xl flex items-center justify-between gap-2 hover:border-slate-600 transition-all"
-                >
-                  <div className="min-w-0 flex-1">
+          {teamPunctualityList.map(({ member, attendance: att, punct }) => {
+            return (
+              <div
+                key={`quick-clock-${member.uid}`}
+                className={`p-3 rounded-2xl flex items-center justify-between gap-2 border transition-all ${
+                  punct.isLate
+                    ? 'bg-rose-950/20 border-rose-600/40 hover:border-rose-500/60'
+                    : 'bg-[#1F2636] border-slate-700/70 hover:border-slate-600'
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
                     <p className="text-xs font-bold text-white truncate">{member.name}</p>
-                    <p className="text-[10px] text-slate-400 truncate">{member.designation}</p>
+                    {punct.isLate && (
+                      <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider bg-rose-500/30 text-rose-300 border border-rose-500/40">
+                        LATE
+                      </span>
+                    )}
                   </div>
-                  <div className="shrink-0">
-                    <MemberLiveClockBadge member={member} attendance={att} />
-                  </div>
+                  <p className="text-[10px] text-slate-400 truncate">{member.designation}</p>
                 </div>
-              );
-            })}
+                <div className="shrink-0">
+                  <MemberLiveClockBadge member={member} attendance={att} />
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
       {/* Grid of Team Members with Today's Entries */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {teamMembers
-          .filter((m) => m.active !== false)
-          .map((member) => {
-            const memberEntries = entriesByMember[member.uid] || [];
-            const att = attendanceByUser.get(member.uid);
+        {teamPunctualityList.map(({ member, attendance: att, punct }) => {
+          const memberEntries = entriesByMember[member.uid] || [];
 
-            return (
-              <div
-                key={member.uid}
-                className="bg-[#161B27] border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4 flex flex-col justify-between"
-              >
-                {/* Member Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-indigo-600 font-bold text-white shadow-lg shadow-indigo-600/20 flex items-center justify-center text-sm border border-indigo-400/20 shrink-0">
-                      {member.name.charAt(0)}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-bold text-white">
-                          {member.name}
-                        </h3>
-                        {member.role === 'admin' && (
-                          <span className="text-[9px] px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-md font-bold uppercase">
-                            Admin
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-400">
-                        {member.designation} • Shift: {member.shiftStart} – {member.shiftEnd}
-                      </p>
-                    </div>
+          return (
+            <div
+              key={member.uid}
+              className={`bg-[#161B27] border rounded-3xl p-6 shadow-xl space-y-4 flex flex-col justify-between transition-all ${
+                punct.isLate ? 'border-rose-600/40' : 'border-slate-800'
+              }`}
+            >
+              {/* Member Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-2xl font-bold text-white shadow-lg flex items-center justify-center text-sm border shrink-0 ${
+                    punct.isLate 
+                      ? 'bg-rose-600 shadow-rose-600/20 border-rose-400/20' 
+                      : 'bg-indigo-600 shadow-indigo-600/20 border-indigo-400/20'
+                  }`}>
+                    {member.name.charAt(0)}
                   </div>
-
-                  {/* Live Clock Badge + Entry Count Pill */}
-                  <div className="flex items-center gap-2 self-start sm:self-center">
-                    <MemberLiveClockBadge member={member} attendance={att} />
-
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold border shrink-0 ${
-                      memberEntries.length > 0
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        : 'bg-[#1F2636] text-slate-400 border-slate-700/60'
-                    }`}>
-                      {memberEntries.length} {memberEntries.length === 1 ? 'log' : 'logs'}
-                    </span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-bold text-white">
+                        {member.name}
+                      </h3>
+                      {punct.isLate && (
+                        <span className="text-[10px] px-2 py-0.5 bg-rose-500/20 text-rose-300 border border-rose-500/40 rounded-full font-black uppercase tracking-wider animate-pulse">
+                          {punct.hasClockedIn ? `LATE (+${punct.minutesFromStart}m)` : `OVERDUE (+${punct.minutesPastGrace}m)`}
+                        </span>
+                      )}
+                      {member.role === 'admin' && (
+                        <span className="text-[9px] px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-md font-bold uppercase">
+                          Admin
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      {member.designation} • Shift: {member.shiftStart || '10:30'} – {member.shiftEnd || '18:30'}
+                    </p>
                   </div>
                 </div>
 
-                {/* Member's Today Entries */}
-                <div className="space-y-3 flex-1">
-                  {memberEntries.length === 0 ? (
-                    <div className="py-8 text-center bg-[#1F2636]/50 rounded-2xl border border-dashed border-slate-800">
-                      <Clock className="w-6 h-6 text-slate-600 mx-auto mb-1.5" />
-                      <p className="text-xs text-slate-500">No work logged yet today</p>
-                    </div>
-                  ) : (
-                    memberEntries.map((entry) => (
-                      <AdminEntryReviewCard
-                        key={entry.id}
-                        entry={entry}
-                        onUpdateReview={onUpdateReview}
-                        adminName={adminName}
-                      />
-                    ))
-                  )}
+                {/* Live Clock Badge + Entry Count Pill */}
+                <div className="flex items-center gap-2 self-start sm:self-center">
+                  <MemberLiveClockBadge member={member} attendance={att} />
+
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold border shrink-0 ${
+                    memberEntries.length > 0
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                      : 'bg-[#1F2636] text-slate-400 border-slate-700/60'
+                  }`}>
+                    {memberEntries.length} {memberEntries.length === 1 ? 'log' : 'logs'}
+                  </span>
                 </div>
               </div>
-            );
-          })}
+
+              {/* Member's Today Entries */}
+              <div className="space-y-3 flex-1">
+                {memberEntries.length === 0 ? (
+                  <div className="py-8 text-center bg-[#1F2636]/50 rounded-2xl border border-dashed border-slate-800">
+                    <Clock className="w-6 h-6 text-slate-600 mx-auto mb-1.5" />
+                    <p className="text-xs text-slate-500">No work logged yet today</p>
+                  </div>
+                ) : (
+                  memberEntries.map((entry) => (
+                    <AdminEntryReviewCard
+                      key={entry.id}
+                      entry={entry}
+                      onUpdateReview={onUpdateReview}
+                      adminName={adminName}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
     </div>

@@ -8,6 +8,7 @@ import {
   getDayOfWeek, 
   getDaySchedule,
   checkPunctuality,
+  checkLiveArrivalStatus,
   getDaysInMonth,
   formatMonthYearLabel,
   isPastDate,
@@ -526,11 +527,22 @@ export const AdminAttendanceTab: React.FC<AdminAttendanceTabProps> = ({
                             <UserX className="w-3 h-3 text-rose-400" />
                             Did Not Clock In
                           </span>
-                        ) : isWorkingDay && isCurToday ? (
-                          <span className="text-slate-500 text-[11px] italic">
-                            Cutoff: {punctuality.graceLimitTime}
-                          </span>
-                        ) : (
+                        ) : isWorkingDay && isCurToday ? (() => {
+                          const liveArr = checkLiveArrivalStatus(member.shiftStart || '09:30', null, isWorkingDay);
+                          if (liveArr.isLate) {
+                            return (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-950/90 text-rose-300 border border-rose-700 animate-pulse">
+                                <AlertTriangle className="w-3 h-3 text-rose-400" />
+                                Overdue Late (+{liveArr.minutesPastGrace}m)
+                              </span>
+                            );
+                          }
+                          return (
+                            <span className="text-slate-400 text-[11px]">
+                              Pending (Cutoff: {punctuality.relaxationLimitTime})
+                            </span>
+                          );
+                        })() : (
                           <span className="text-slate-500 text-xs">Rest Day</span>
                         )}
                       </td>
@@ -1160,11 +1172,11 @@ export const AdminAttendanceTab: React.FC<AdminAttendanceTabProps> = ({
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-slate-400">30m Grace Limit:</span>
-                      <strong className="text-amber-400 font-mono text-xs">{punct.graceLimitTime}</strong>
+                      <strong className="text-amber-400 font-mono text-xs">{punct.relaxationLimitTime}</strong>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-slate-400">Late Cutoff:</span>
-                      <span className="text-rose-400 font-medium text-[11px]">After {punct.graceLimitTime}</span>
+                      <span className="text-rose-400 font-medium text-[11px]">After {punct.relaxationLimitTime}</span>
                     </div>
                   </div>
 

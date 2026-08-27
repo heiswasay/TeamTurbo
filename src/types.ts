@@ -102,6 +102,10 @@ export interface AttendanceRecord {
   sessions: AttendanceSession[];
   totalMinutes: number;
   status: AttendanceStatus;
+  isLate?: boolean;
+  lateMinutes?: number;
+  latePastGraceMinutes?: number;
+  firstLoginAt?: string;
   autoClosed?: boolean;
   createdAt?: any;
   updatedAt?: any;
