@@ -1,0 +1,6 @@
+{
+  "name": "Team Daily Work Tracker",
+  "description": "Production-ready Team Daily Work Tracking & Attendance System with role-based access, real-time reviews, handovers, task assignment, and shift tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

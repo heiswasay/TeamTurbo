@@ -1,0 +1,106 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile containing authentication metadata, role, shift settings, and preferences",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Auth UID" },
+        "name": { "type": "string", "description": "Full name" },
+        "email": { "type": "string", "description": "Email address" },
+        "role": { "type": "string", "enum": ["admin", "member"], "description": "User access role" },
+        "designation": { "type": "string", "description": "Job title" },
+        "shiftStart": { "type": "string", "description": "Shift start time in HH:mm" },
+        "shiftEnd": { "type": "string", "description": "Shift end time in HH:mm" },
+        "active": { "type": "boolean", "description": "Active status" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "WorkEntry": {
+      "title": "WorkEntry",
+      "description": "Daily logged accomplishment by a team member",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Author UID" },
+        "userName": { "type": "string", "description": "Author display name" },
+        "date": { "type": "string", "description": "Date in YYYY-MM-DD" },
+        "company": { "type": "string", "description": "Company/client name" },
+        "taskText": { "type": "string", "description": "Task details" },
+        "timeSpent": { "type": "string", "description": "Time spent string" },
+        "status": { "type": "string", "enum": ["completed", "in_progress", "pending"] },
+        "review": { "type": "string", "enum": ["pending", "ok", "needs_rework"] }
+      },
+      "required": ["userId", "date", "company", "taskText"]
+    },
+    "AttendanceRecord": {
+      "title": "AttendanceRecord",
+      "description": "Daily attendance and punch sessions record",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Member UID" },
+        "date": { "type": "string", "description": "Date in YYYY-MM-DD" },
+        "status": { "type": "string", "enum": ["active", "logged_off"] },
+        "totalMinutes": { "type": "number", "description": "Total worked minutes" }
+      },
+      "required": ["userId", "date", "status"]
+    },
+    "AssignedTask": {
+      "title": "AssignedTask",
+      "description": "Task assigned by admin to a member",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Task title" },
+        "assignedTo": { "type": "string", "description": "Assignee UID" },
+        "status": { "type": "string", "enum": ["todo", "in_progress", "done"] }
+      },
+      "required": ["title", "assignedTo", "status"]
+    },
+    "Handover": {
+      "title": "Handover",
+      "description": "Cross-shift handover note between team members",
+      "type": "object",
+      "properties": {
+        "fromUserId": { "type": "string", "description": "Sender UID" },
+        "toUserId": { "type": "string", "description": "Receiver UID" },
+        "status": { "type": "string", "enum": ["pending", "acknowledged"] }
+      },
+      "required": ["fromUserId", "toUserId", "status"]
+    },
+    "CompanyTag": {
+      "title": "CompanyTag",
+      "description": "Managed company / client project tag",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Company name" },
+        "color": { "type": "string", "description": "Badge color" }
+      },
+      "required": ["name"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Team member profiles and permissions"
+    },
+    "/work_entries/{entryId}": {
+      "schema": "WorkEntry",
+      "description": "Daily work logs"
+    },
+    "/attendance/{attendanceId}": {
+      "schema": "AttendanceRecord",
+      "description": "Daily member punch session tracking"
+    },
+    "/assigned_tasks/{taskId}": {
+      "schema": "AssignedTask",
+      "description": "Task assignments from team leads"
+    },
+    "/handovers/{handoverId}": {
+      "schema": "Handover",
+      "description": "Shift handover logs"
+    },
+    "/companies/{companyId}": {
+      "schema": "CompanyTag",
+      "description": "Managed client/company tags"
+    }
+  }
+}

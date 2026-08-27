@@ -1,0 +1,424 @@
+import React, { useState, useMemo } from 'react';
+import { Handover, HandoverStatus, UserProfile, DEFAULT_COMPANIES, CompanyTag } from '../../types';
+import { formatDateLabel } from '../../lib/dateUtils';
+import { 
+  ArrowRightLeft, 
+  Send, 
+  CheckCircle2, 
+  Clock, 
+  AlertCircle, 
+  User, 
+  Building2, 
+  Plus, 
+  X,
+  CheckCheck,
+  ChevronDown
+} from 'lucide-react';
+
+interface HandoversPanelProps {
+  handovers: Handover[];
+  teamMembers: UserProfile[];
+  companies: CompanyTag[];
+  currentUserId: string;
+  currentUserName: string;
+  onSendHandover: (handover: Omit<Handover, 'id' | 'createdAt'>) => Promise<void>;
+  onUpdateStatus: (handoverId: string, status: HandoverStatus) => Promise<void>;
+}
+
+export const HandoversPanel: React.FC<HandoversPanelProps> = ({
+  handovers = [],
+  teamMembers = [],
+  companies = [],
+  currentUserId,
+  currentUserName,
+  onSendHandover,
+  onUpdateStatus,
+}) => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [toUserId, setToUserId] = useState('');
+  const [title, setTitle] = useState('');
+  const [message, setMessage] = useState('');
+  const [relatedCompany, setRelatedCompany] = useState(companies?.[0]?.name || DEFAULT_COMPANIES[0]);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Available other members to send to
+  const otherMembers = (teamMembers || []).filter((m) => m.uid !== currentUserId && m.active !== false);
+  const activeCompanies = useMemo(() => {
+    const list = (companies && companies.length > 0)
+      ? companies.filter((c) => !c.archived).map((c) => c.name)
+      : DEFAULT_COMPANIES;
+    return Array.from(new Set(list));
+  }, [companies]);
+
+  // Received handovers vs Sent handovers
+  const receivedHandovers = (handovers || []).filter((h) => h.toUserId === currentUserId);
+  const sentHandovers = (handovers || []).filter((h) => h.fromUserId === currentUserId);
+  const unacknowledged = receivedHandovers.filter((h) => h.status === 'pending');
+
+  const handleSendSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!toUserId || !title.trim() || !message.trim()) return;
+
+    const targetUser = teamMembers.find((m) => m.uid === toUserId);
+    if (!targetUser) return;
+
+    setSubmitting(true);
+    try {
+      await onSendHandover({
+        fromUserId: currentUserId,
+        fromUserName: currentUserName,
+        toUserId,
+        toUserName: targetUser.name,
+        title: title.trim(),
+        message: message.trim(),
+        relatedCompany,
+        status: 'pending',
+      });
+      setTitle('');
+      setMessage('');
+      setIsModalOpen(false);
+    } catch (err) {
+      console.error('Failed to send handover:', err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+
+      {/* Unacknowledged Urgent Banner (Impossible to miss) */}
+      {unacknowledged.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-500/20 via-indigo-500/20 to-amber-500/20 border-2 border-amber-500/60 rounded-3xl p-6 shadow-2xl backdrop-blur-md animate-pulse">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-3 bg-amber-500 text-slate-950 rounded-2xl font-bold shadow-lg shadow-amber-500/30">
+              <ArrowRightLeft className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white">
+                Pending Work Handovers ({unacknowledged.length})
+              </h3>
+              <p className="text-xs text-amber-200">
+                A teammate has transferred active tasks or shifts to you. Please acknowledge to take ownership.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {unacknowledged.map((h) => (
+              <div 
+                key={h.id}
+                className="bg-slate-900 border border-amber-500/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg"
+              >
+                <div className="space-y-1 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-amber-300">
+                      From {h.fromUserName}
+                    </span>
+                    <span className="text-slate-500">•</span>
+                    <span className="text-xs font-semibold text-slate-300">{h.relatedCompany}</span>
+                  </div>
+                  <h4 className="text-sm font-bold text-white">{h.title}</h4>
+                  <p className="text-xs text-slate-300 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+                    {h.message}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => onUpdateStatus(h.id, 'accepted')}
+                    className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md shadow-amber-500/20 flex items-center gap-1.5"
+                  >
+                    <CheckCheck className="w-4 h-4" />
+                    Acknowledge Handover
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Main Handovers Management Panel */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
+        
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <ArrowRightLeft className="w-5 h-5 text-indigo-400" />
+              Work Handovers
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Transfer in-flight tasks and shift context across team members seamlessly
+            </p>
+          </div>
+
+          <button
+            id="send-handover-btn"
+            onClick={() => {
+              if (otherMembers.length > 0 && !toUserId) {
+                setToUserId(otherMembers[0].uid);
+              }
+              setIsModalOpen(true);
+            }}
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs transition-all shadow-lg shadow-indigo-600/20 flex items-center gap-2 self-start sm:self-center"
+          >
+            <Plus className="w-4 h-4" />
+            Send a Handover
+          </button>
+        </div>
+
+        {/* Two Columns: Received vs Sent */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          {/* Column 1: Received Handovers */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                Received Handovers ({receivedHandovers.length})
+              </span>
+            </div>
+
+            {receivedHandovers.length === 0 ? (
+              <p className="text-xs text-slate-500 py-6 text-center bg-slate-950/40 rounded-2xl border border-slate-800/60">
+                No handovers received yet.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {receivedHandovers.map((h) => (
+                  <div
+                    key={h.id}
+                    className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 transition-all space-y-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-indigo-300 flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5" />
+                        From {h.fromUserName}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                        h.status === 'completed'
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                          : h.status === 'accepted'
+                          ? 'bg-sky-500/20 text-sky-300 border-sky-500/30'
+                          : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                      }`}>
+                        {h.status === 'completed' ? 'Completed' : h.status === 'accepted' ? 'Acknowledged' : 'Pending'}
+                      </span>
+                    </div>
+
+                    <div className="text-sm font-bold text-white">{h.title}</div>
+                    <div className="text-xs text-slate-400 flex items-center gap-1">
+                      <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                      Company: <span className="text-slate-300 font-medium">{h.relatedCompany}</span>
+                    </div>
+                    
+                    <p className="text-xs text-slate-300 bg-slate-900/90 p-2.5 rounded-xl border border-slate-800/80">
+                      {h.message}
+                    </p>
+
+                    {/* Actions for recipient */}
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      {h.status === 'pending' && (
+                        <button
+                          type="button"
+                          onClick={() => onUpdateStatus(h.id, 'accepted')}
+                          className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg transition-colors"
+                        >
+                          Acknowledge
+                        </button>
+                      )}
+                      {h.status === 'accepted' && (
+                        <button
+                          type="button"
+                          onClick={() => onUpdateStatus(h.id, 'completed')}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Mark Complete
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Column 2: Sent Handovers */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                Sent Handovers ({sentHandovers.length})
+              </span>
+            </div>
+
+            {sentHandovers.length === 0 ? (
+              <p className="text-xs text-slate-500 py-6 text-center bg-slate-950/40 rounded-2xl border border-slate-800/60">
+                You haven't sent any handovers yet.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {sentHandovers.map((h) => (
+                  <div
+                    key={h.id}
+                    className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 transition-all space-y-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5 text-slate-500" />
+                        To <strong className="text-white">{h.toUserName}</strong>
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                        h.status === 'completed'
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                          : h.status === 'accepted'
+                          ? 'bg-sky-500/20 text-sky-300 border-sky-500/30'
+                          : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                      }`}>
+                        {h.status === 'completed' ? 'Completed' : h.status === 'accepted' ? 'Acknowledged' : 'Pending'}
+                      </span>
+                    </div>
+
+                    <div className="text-sm font-bold text-white">{h.title}</div>
+                    <div className="text-xs text-slate-400 flex items-center gap-1">
+                      <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                      Company: <span className="text-slate-300 font-medium">{h.relatedCompany}</span>
+                    </div>
+
+                    <p className="text-xs text-slate-300 bg-slate-900/90 p-2.5 rounded-xl border border-slate-800/80">
+                      {h.message}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* Send Handover Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl">
+                  <ArrowRightLeft className="w-5 h-5" />
+                </div>
+                <h3 className="text-base font-bold text-white">Send Task Handover</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSendSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Transfer To Team Member
+                  </label>
+                  <div className="relative">
+                    <select
+                      required
+                      value={toUserId}
+                      onChange={(e) => setToUserId(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none pr-8"
+                    >
+                      {otherMembers.length === 0 ? (
+                        <option key="no-members" value="">No other members available</option>
+                      ) : (
+                        otherMembers.map((m) => (
+                          <option key={`to-member-${m.uid}`} value={m.uid}>
+                            {m.name} ({m.designation})
+                          </option>
+                        ))
+                      )}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Related Company / Client
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={relatedCompany}
+                      onChange={(e) => setRelatedCompany(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none pr-8"
+                    >
+                      {activeCompanies.map((c, idx) => (
+                        <option key={`handover-comp-${idx}-${c}`} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Handover Title / Subject
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. In-progress banner graphics & pending client review"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Detailed Handover Instructions & Context
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Include file locations, pending tasks, blocker notes, or next steps..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting || !title.trim() || !message.trim() || !toUserId}
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-lg shadow-indigo-600/20 transition-all flex items-center gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  {submitting ? 'Sending...' : 'Send Handover'}
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+};
