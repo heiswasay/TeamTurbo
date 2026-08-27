@@ -203,10 +203,34 @@ export function useTrackerData(currentUser: any, userProfile: UserProfile | null
   };
 
   const updateWorkEntry = async (entryId: string, updates: Partial<WorkEntry>) => {
+    const nowIso = new Date().toISOString();
     await updateDoc(doc(db, 'work_entries', entryId), {
       ...updates,
-      updatedAt: new Date().toISOString(),
+      updatedAt: nowIso,
     });
+
+    // If this work entry is linked to an assigned task, synchronize the task status
+    const existingEntry = entries.find((e) => e.id === entryId);
+    const assignedTaskId = updates.assignedTaskId || existingEntry?.assignedTaskId;
+    if (assignedTaskId && updates.status) {
+      const taskStatusMap: Record<TaskStatus, AssignedTaskStatus> = {
+        completed: 'done',
+        in_progress: 'in_progress',
+        pending: 'open',
+      };
+      const matchingTaskStatus = taskStatusMap[updates.status];
+      if (matchingTaskStatus) {
+        try {
+          await updateDoc(doc(db, 'assigned_tasks', assignedTaskId), {
+            status: matchingTaskStatus,
+            completedAt: matchingTaskStatus === 'done' ? nowIso : null,
+            updatedAt: nowIso,
+          });
+        } catch (err) {
+          console.warn('Could not sync assigned task status:', err);
+        }
+      }
+    }
   };
 
   const deleteWorkEntry = async (entryId: string) => {
@@ -289,26 +313,90 @@ export function useTrackerData(currentUser: any, userProfile: UserProfile | null
     });
   };
 
-  // Assigned Tasks
+  // Assigned Tasks (Automatically creates member's work log with pending status)
   const assignTask = async (task: Omit<AssignedTask, 'id' | 'createdAt'>) => {
-    const id = `task_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const taskId = `task_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const workEntryId = `entry_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const nowIso = new Date().toISOString();
+
     const newTask: AssignedTask = {
       ...task,
-      id,
-      createdAt: new Date().toISOString(),
+      id: taskId,
+      workEntryId,
+      createdAt: nowIso,
     };
-    await setDoc(doc(db, 'assigned_tasks', id), newTask);
+    await setDoc(doc(db, 'assigned_tasks', taskId), newTask);
+
+    // Automatically create the assignee's work log with pending status
+    const targetMember = teamMembers.find((m) => m.uid === task.assignedTo);
+    const assignedMemberName = task.assignedToName || targetMember?.name || 'Team Member';
+    const entryDate = task.dueDate || todayStr;
+    const taskCompany = task.company || (companies && companies.length > 0 ? companies[0].name : DEFAULT_COMPANIES[0]);
+
+    const formattedTaskText = task.description?.trim()
+      ? `${task.title.trim()} — ${task.description.trim()}`
+      : task.title.trim();
+
+    const newWorkEntry: WorkEntry = {
+      id: workEntryId,
+      userId: task.assignedTo,
+      userName: assignedMemberName,
+      date: entryDate,
+      company: taskCompany,
+      taskText: formattedTaskText,
+      timeSpent: '0m',
+      status: 'pending',
+      review: 'pending',
+      remarks: `Assigned by ${task.assignedByName || userProfile?.name || 'Admin'} (${task.priority.toUpperCase()} priority)`,
+      assignedTaskId: taskId,
+      createdAt: nowIso,
+    };
+
+    await setDoc(doc(db, 'work_entries', workEntryId), newWorkEntry);
   };
 
   const updateTaskStatus = async (taskId: string, status: AssignedTaskStatus) => {
+    const nowIso = new Date().toISOString();
     await updateDoc(doc(db, 'assigned_tasks', taskId), {
       status,
-      updatedAt: new Date().toISOString(),
+      completedAt: status === 'done' ? nowIso : null,
+      updatedAt: nowIso,
     });
+
+    // Synchronize the linked work entry status
+    const task = tasks.find((t) => t.id === taskId);
+    const linkedWorkEntry = entries.find((e) => e.assignedTaskId === taskId || (task?.workEntryId && e.id === task.workEntryId));
+    if (linkedWorkEntry) {
+      const entryStatusMap: Record<AssignedTaskStatus, TaskStatus> = {
+        done: 'completed',
+        in_progress: 'in_progress',
+        open: 'pending',
+      };
+      const matchingEntryStatus = entryStatusMap[status];
+      if (matchingEntryStatus && linkedWorkEntry.status !== matchingEntryStatus) {
+        try {
+          await updateDoc(doc(db, 'work_entries', linkedWorkEntry.id), {
+            status: matchingEntryStatus,
+            updatedAt: nowIso,
+          });
+        } catch (err) {
+          console.warn('Could not sync work entry status:', err);
+        }
+      }
+    }
   };
 
   const deleteTask = async (taskId: string) => {
     await deleteDoc(doc(db, 'assigned_tasks', taskId));
+    // Clean up auto-created work entry if it is still pending
+    const linkedEntry = entries.find((e) => e.assignedTaskId === taskId);
+    if (linkedEntry) {
+      try {
+        await deleteDoc(doc(db, 'work_entries', linkedEntry.id));
+      } catch (err) {
+        console.warn('Could not delete linked work entry:', err);
+      }
+    }
   };
 
   // Handovers

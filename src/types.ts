@@ -51,6 +51,7 @@ export interface WorkEntry {
   reviewedAt?: any;
   followUpNote?: string;
   followUpAt?: any;
+  assignedTaskId?: string;
   createdAt?: any;
   updatedAt?: any;
 }
@@ -65,9 +66,12 @@ export interface AssignedTask {
   description: string;
   priority: TaskPriority;
   dueDate: string; // YYYY-MM-DD
+  company?: string;
   status: AssignedTaskStatus;
+  workEntryId?: string;
   createdAt?: any;
   completedAt?: any;
+  updatedAt?: any;
 }
 
 export interface Handover {

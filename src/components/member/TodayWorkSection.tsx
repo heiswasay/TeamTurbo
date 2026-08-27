@@ -55,6 +55,7 @@ export const TodayWorkSection: React.FC<TodayWorkSectionProps> = ({
   const [timeSpent, setTimeSpent] = useState('1h 30m');
   const [status, setStatus] = useState<TaskStatus>('completed');
   const [submitting, setSubmitting] = useState(false);
+  const [filterTab, setFilterTab] = useState<'all' | 'pending' | 'in_progress' | 'completed'>('all');
 
   // Sync initialTaskText if set from outside widget
   React.useEffect(() => {
@@ -71,6 +72,17 @@ export const TodayWorkSection: React.FC<TodayWorkSectionProps> = ({
       : DEFAULT_COMPANIES;
     return Array.from(new Set(list));
   }, [companies]);
+
+  const pendingCount = entries.filter((e) => e.status === 'pending').length;
+  const inProgressCount = entries.filter((e) => e.status === 'in_progress').length;
+  const completedCount = entries.filter((e) => e.status === 'completed').length;
+
+  const filteredEntries = useMemo(() => {
+    if (filterTab === 'pending') return entries.filter((e) => e.status === 'pending');
+    if (filterTab === 'in_progress') return entries.filter((e) => e.status === 'in_progress');
+    if (filterTab === 'completed') return entries.filter((e) => e.status === 'completed');
+    return entries;
+  }, [entries, filterTab]);
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,7 +131,7 @@ export const TodayWorkSection: React.FC<TodayWorkSectionProps> = ({
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
             <AlertCircle className="w-3.5 h-3.5" />
-            Pending / Blocked
+            Pending / Action Required
           </span>
         );
     }
@@ -173,20 +185,80 @@ export const TodayWorkSection: React.FC<TodayWorkSectionProps> = ({
             </h2>
             <p className="text-xs text-slate-400 mt-1">
               {formatDateLabel(todayStr)} • {entries.length} {entries.length === 1 ? 'task recorded' : 'tasks recorded'}
+              {pendingCount > 0 && (
+                <span className="ml-2 font-bold text-amber-400">
+                  ({pendingCount} pending action)
+                </span>
+              )}
             </p>
           </div>
 
-          {!isAdding && (
-            <button
-              id="add-work-entry-btn"
-              onClick={() => setIsAdding(true)}
-              className="px-5 py-3 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              Add Work Entry
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {!isAdding && (
+              <button
+                id="add-work-entry-btn"
+                onClick={() => setIsAdding(true)}
+                className="px-5 py-3 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                Add Work Entry
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Filter / View Tabs */}
+        {entries.length > 0 && (
+          <div className="flex items-center gap-2 mt-6 pt-5 border-t border-slate-800/80 overflow-x-auto relative z-10">
+            <button
+              type="button"
+              onClick={() => setFilterTab('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                filterTab === 'all'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                  : 'bg-[#1F2636] text-slate-400 hover:text-white border border-slate-700/60'
+              }`}
+            >
+              All Logs ({entries.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterTab('pending')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                filterTab === 'pending'
+                  ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
+                  : 'bg-[#1F2636] text-slate-400 hover:text-white border border-slate-700/60'
+              }`}
+            >
+              <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+              Pending Work ({pendingCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterTab('in_progress')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                filterTab === 'in_progress'
+                  ? 'bg-amber-600 text-white shadow-md shadow-amber-600/20'
+                  : 'bg-[#1F2636] text-slate-400 hover:text-white border border-slate-700/60'
+              }`}
+            >
+              <Clock3 className="w-3.5 h-3.5 text-amber-400" />
+              In Progress ({inProgressCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterTab('completed')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                filterTab === 'completed'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                  : 'bg-[#1F2636] text-slate-400 hover:text-white border border-slate-700/60'
+              }`}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              Completed ({completedCount})
+            </button>
+          </div>
+        )}
 
         {/* Inline Add Form */}
         {isAdding && (
@@ -297,24 +369,30 @@ export const TodayWorkSection: React.FC<TodayWorkSectionProps> = ({
 
       {/* List of Today's Editable Cards */}
       <div className="space-y-4">
-        {entries.length === 0 ? (
+        {filteredEntries.length === 0 ? (
           <div className="bg-[#161B27] border border-dashed border-slate-800 rounded-3xl p-10 text-center">
             <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto mb-3 border border-indigo-500/20">
               <Sparkles className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-white">No tasks logged yet for today</h3>
+            <h3 className="text-base font-bold text-white">
+              {filterTab === 'all' ? 'No tasks logged yet for today' : `No ${filterTab.replace('_', ' ')} tasks for today`}
+            </h3>
             <p className="text-xs text-slate-400 max-w-md mx-auto mt-1 mb-5">
-              Click the button above to log your first task. Entries can be edited directly with auto-save anytime throughout today!
+              {filterTab === 'all'
+                ? 'Click the button above to log your first task, or work on tasks assigned by your admin.'
+                : 'Switch filters or log new tasks to update your workday log.'}
             </p>
-            <button
-              onClick={() => setIsAdding(true)}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-colors shadow-lg shadow-indigo-600/20"
-            >
-              Add First Task
-            </button>
+            {filterTab === 'all' && (
+              <button
+                onClick={() => setIsAdding(true)}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-colors shadow-lg shadow-indigo-600/20"
+              >
+                Add First Task
+              </button>
+            )}
           </div>
         ) : (
-          entries.map((entry) => (
+          filteredEntries.map((entry) => (
             <TodayEntryCard
               key={entry.id}
               entry={entry}
@@ -348,6 +426,14 @@ const TodayEntryCard: React.FC<TodayEntryCardProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
+  // Sync state if props change from external sync
+  React.useEffect(() => {
+    setTaskText(entry.taskText);
+    setTimeSpent(entry.timeSpent);
+    setCompany(entry.company);
+    setStatus(entry.status);
+  }, [entry.taskText, entry.timeSpent, entry.company, entry.status]);
+
   const handleBlurOrChange = async (updates: Partial<WorkEntry>) => {
     setIsSaving(true);
     try {
@@ -361,9 +447,63 @@ const TodayEntryCard: React.FC<TodayEntryCardProps> = ({
     }
   };
 
+  const isAssigned = !!entry.assignedTaskId || (entry.remarks && entry.remarks.toLowerCase().includes('assigned by'));
+  const isPending = status === 'pending';
+
   return (
-    <div className="bg-[#161B27] border border-slate-800 rounded-3xl p-6 shadow-xl relative group transition-all hover:border-slate-700">
+    <div className={`border rounded-3xl p-6 shadow-xl relative group transition-all ${
+      isPending && isAssigned
+        ? 'bg-[#181E2E] border-amber-500/40 ring-1 ring-amber-500/20'
+        : 'bg-[#161B27] border-slate-800 hover:border-slate-700'
+    }`}>
       
+      {/* Top Banner if Assigned by Admin */}
+      {isAssigned && (
+        <div className="mb-4 pb-3 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
+            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-[11px] font-black uppercase tracking-wider flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-amber-400" />
+              Assigned Work Log
+            </span>
+            <span className="text-slate-400 font-normal">
+              {entry.remarks || 'Assigned by Admin • Action Required'}
+            </span>
+          </div>
+
+          {/* Quick status actions for member */}
+          <div className="flex items-center gap-2 ml-auto">
+            {status === 'pending' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setStatus('in_progress');
+                  handleBlurOrChange({ status: 'in_progress' });
+                }}
+                className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg transition-colors flex items-center gap-1 shadow-sm"
+              >
+                <Clock3 className="w-3.5 h-3.5" />
+                Start Working
+              </button>
+            )}
+            {status !== 'completed' && (
+              <button
+                type="button"
+                onClick={() => {
+                  const finalTime = timeSpent === '0m' || !timeSpent ? '1h' : timeSpent;
+                  setTimeSpent(finalTime);
+                  setStatus('completed');
+                  handleBlurOrChange({ status: 'completed', timeSpent: finalTime });
+                }}
+                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1 shadow-sm shadow-emerald-600/20"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Mark Completed
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Top Bar: Company Pill, Time, Status Selector, and Admin Review Badges */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800">
         
@@ -388,7 +528,7 @@ const TodayEntryCard: React.FC<TodayEntryCardProps> = ({
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2 pointer-events-none" />
           </div>
 
-          {/* Time input */}
+          {/* Time input & quick increment helpers */}
           <div className="flex items-center gap-1.5 bg-[#1F2636] border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-300">
             <Clock className="w-3.5 h-3.5 text-indigo-400" />
             <input
@@ -400,10 +540,28 @@ const TodayEntryCard: React.FC<TodayEntryCardProps> = ({
                   handleBlurOrChange({ timeSpent });
                 }
               }}
-              placeholder="1h"
+              placeholder="0m"
               className="bg-transparent border-none focus:outline-none w-16 text-xs text-white font-medium"
             />
           </div>
+
+          {(timeSpent === '0m' || timeSpent === '0h' || !timeSpent) && (
+            <div className="hidden sm:flex items-center gap-1">
+              {['30m', '1h', '2h'].map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => {
+                    setTimeSpent(t);
+                    handleBlurOrChange({ timeSpent: t });
+                  }}
+                  className="px-2 py-0.5 bg-[#1F2636] hover:bg-indigo-600/30 text-slate-300 hover:text-indigo-300 text-[10px] font-semibold rounded-lg border border-slate-700/60 transition-colors"
+                >
+                  +{t}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Status Dropdown */}
           <div className="relative">
@@ -488,7 +646,7 @@ const TodayEntryCard: React.FC<TodayEntryCardProps> = ({
           <MessageSquare className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
           <div className="flex-1">
             <span className="font-bold text-amber-300 text-[11px] uppercase tracking-wider">
-              Lead Remarks ({entry.reviewedByName || 'Team Lead'}):
+              Lead Remarks / Assignment Note:
             </span>
             <p className="text-slate-300 mt-1 italic leading-relaxed">"{entry.remarks}"</p>
           </div>
@@ -498,3 +656,4 @@ const TodayEntryCard: React.FC<TodayEntryCardProps> = ({
     </div>
   );
 };
+

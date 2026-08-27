@@ -355,6 +355,7 @@ function DashboardShell() {
               <AdminTaskAssignment
                 tasks={tasks}
                 teamMembers={teamMembers}
+                companies={companies}
                 adminId={userProfile.uid}
                 adminName={userProfile.name}
                 onAssignTask={assignTask}

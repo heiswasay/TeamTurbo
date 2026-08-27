@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AssignedTask, UserProfile, TaskPriority, AssignedTaskStatus } from '../../types';
+import { AssignedTask, UserProfile, TaskPriority, AssignedTaskStatus, CompanyTag, DEFAULT_COMPANIES } from '../../types';
 import { formatDateLabel, getTodayDateString } from '../../lib/dateUtils';
 import { 
   Plus, 
@@ -11,12 +11,16 @@ import {
   CheckCircle2, 
   Trash2, 
   Clock3,
-  ChevronDown
+  ChevronDown,
+  Building2,
+  Sparkles,
+  ClipboardList
 } from 'lucide-react';
 
 interface AdminTaskAssignmentProps {
   tasks: AssignedTask[];
   teamMembers: UserProfile[];
+  companies?: CompanyTag[];
   adminId: string;
   adminName: string;
   onAssignTask: (task: Omit<AssignedTask, 'id' | 'createdAt'>) => Promise<void>;
@@ -27,6 +31,7 @@ interface AdminTaskAssignmentProps {
 export const AdminTaskAssignment: React.FC<AdminTaskAssignmentProps> = ({
   tasks = [],
   teamMembers = [],
+  companies = [],
   adminId,
   adminName,
   onAssignTask,
@@ -36,6 +41,7 @@ export const AdminTaskAssignment: React.FC<AdminTaskAssignmentProps> = ({
   const todayStr = getTodayDateString();
   const [isAdding, setIsAdding] = useState(false);
   const [assignedTo, setAssignedTo] = useState('');
+  const [company, setCompany] = useState(companies?.[0]?.name || DEFAULT_COMPANIES[0]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<TaskPriority>('medium');
@@ -43,6 +49,13 @@ export const AdminTaskAssignment: React.FC<AdminTaskAssignmentProps> = ({
   const [submitting, setSubmitting] = useState(false);
 
   const activeMembers = (teamMembers || []).filter((m) => m.active !== false);
+
+  const activeCompanies = React.useMemo(() => {
+    const list = (companies && companies.length > 0)
+      ? companies.filter((c) => !c.archived).map((c) => c.name)
+      : DEFAULT_COMPANIES;
+    return Array.from(new Set(list));
+  }, [companies]);
 
   const handleAssignSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +75,7 @@ export const AdminTaskAssignment: React.FC<AdminTaskAssignmentProps> = ({
         description: description.trim(),
         priority,
         dueDate,
+        company: company || activeCompanies[0] || 'General Work',
         status: 'open',
       });
       setTitle('');
@@ -151,7 +165,7 @@ export const AdminTaskAssignment: React.FC<AdminTaskAssignmentProps> = ({
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1">
                   Assignee
@@ -166,6 +180,26 @@ export const AdminTaskAssignment: React.FC<AdminTaskAssignmentProps> = ({
                     {activeMembers.map((m) => (
                       <option key={m.uid} value={m.uid}>
                         {m.name} ({m.designation})
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Company / Project
+                </label>
+                <div className="relative">
+                  <select
+                    value={company}
+                    onChange={(e) => setCompany(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none pr-8"
+                  >
+                    {activeCompanies.map((c, idx) => (
+                      <option key={`assign-comp-${idx}-${c}`} value={c}>
+                        {c}
                       </option>
                     ))}
                   </select>
@@ -231,6 +265,14 @@ export const AdminTaskAssignment: React.FC<AdminTaskAssignmentProps> = ({
                 placeholder="Specific scope, references, files, expectations..."
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
+            </div>
+
+            {/* Auto Work Log Sync Callout Banner */}
+            <div className="bg-indigo-950/40 border border-indigo-500/30 rounded-xl p-3 flex items-start sm:items-center gap-2.5 text-xs text-indigo-200">
+              <Sparkles className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5 sm:mt-0" />
+              <span>
+                <strong>Automatic Work Log:</strong> A work entry with <span className="underline font-bold text-amber-300">Pending</span> status will be automatically created in the member's daily tracker for this assignment.
+              </span>
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-2">
