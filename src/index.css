@@ -29,52 +29,81 @@
 }
 
 /* ========================================================================= */
-/* LIGHT MODE STYLES & OVERRIDES */
+/* LIGHT MODE COMPREHENSIVE STYLES & OVERRIDES */
 /* ========================================================================= */
 html.light,
 html[data-theme="light"],
 html:not(.dark) {
-  /* Main Canvas & Backgrounds */
+  /* 1. Main Page Canvas & Layout Backdrops */
   body,
   .bg-\[\#0B0F1A\],
   .bg-\[\#0B0F1A\]\/80,
-  .bg-\[\#0B0F1A\]\/60 {
+  .bg-\[\#0B0F1A\]\/60,
+  [class*="bg-[#0B0F1A]"] {
     background-color: #F8FAFC !important;
   }
 
-  /* Cards, Panels & Modals */
+  /* 2. Primary Cards, Containers & Modals */
   .bg-\[\#161B27\],
-  .bg-\[\#161B27\]\/80,
-  .bg-\[\#161B27\]\/50 {
+  .bg-slate-900,
+  [class*="bg-[#161B27]"],
+  [class*="bg-slate-900"] {
     background-color: #FFFFFF !important;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
   }
 
-  /* Subcards, Table Headers, Inset Panels */
+  /* 3. Inset Boxes, Stat Cards, Nested Feed Cards & Sub-panels */
   .bg-\[\#1F2636\],
-  .bg-slate-900,
-  .bg-slate-950 {
+  .bg-slate-950,
+  .bg-slate-800,
+  .bg-slate-850,
+  [class*="bg-[#1F2636]"],
+  [class*="bg-slate-950"],
+  [class*="bg-slate-950/"],
+  [class*="bg-slate-900/"],
+  [class*="bg-slate-800"] {
     background-color: #F1F5F9 !important;
   }
 
-  /* Hover States */
+  /* 4. Table Header & Secondary Strips */
+  thead tr,
+  th {
+    background-color: #F1F5F9 !important;
+    color: #475569 !important;
+    border-color: #E2E8F0 !important;
+  }
+
+  tbody tr:hover {
+    background-color: #F8FAFC !important;
+  }
+
+  /* 5. Hover States */
   .hover\:bg-\[\#1F2636\]:hover,
   .hover\:bg-\[\#161B27\]:hover,
-  .hover\:bg-slate-800:hover {
+  .hover\:bg-slate-800:hover,
+  .hover\:bg-slate-900:hover,
+  [class*="hover:bg-[#1F2636]"]:hover,
+  [class*="hover:bg-slate-800"]:hover {
     background-color: #E2E8F0 !important;
   }
 
-  /* Borders */
+  /* 6. Borders & Dividers */
   .border-slate-800,
   .border-slate-700,
   .border-slate-700\/80,
   .border-slate-700\/60,
-  .border-slate-600 {
+  .border-slate-600,
+  .border-slate-850,
+  .border-slate-900,
+  [class*="border-slate-800"],
+  [class*="border-slate-700"],
+  [class*="border-slate-900"],
+  [class*="border-slate-850"] {
     border-color: #E2E8F0 !important;
   }
 
-  /* Typography */
-  .text-white:not(.bg-indigo-600 *):not(.bg-indigo-500 *):not(.bg-rose-600 *):not(.bg-emerald-600 *):not(.bg-emerald-500 *):not(button.bg-indigo-600):not(button.bg-rose-600):not(.bg-red-500 *) {
+  /* 7. Typography & Headings (Ensure High Contrast in Light Mode) */
+  .text-white:not(.bg-indigo-600 *):not(.bg-indigo-500 *):not(.bg-rose-600 *):not(.bg-rose-500 *):not(.bg-emerald-600 *):not(.bg-emerald-500 *):not(.bg-amber-600 *):not(.bg-blue-600 *):not(.bg-red-500 *):not(button.bg-indigo-600):not(button.bg-rose-600):not(button.bg-emerald-600):not(.badge-solid *) {
     color: #0F172A !important;
   }
 
@@ -91,8 +120,40 @@ html:not(.dark) {
     color: #64748B !important;
   }
 
-  /* Inputs, Textareas and Dropdowns */
-  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  .text-slate-600 {
+    color: #94A3B8 !important;
+  }
+
+  /* Colored Accent Typography on Light Backgrounds */
+  .text-indigo-300,
+  .text-indigo-400 {
+    color: #4F46E5 !important;
+  }
+
+  .text-emerald-300,
+  .text-emerald-400 {
+    color: #059669 !important;
+  }
+
+  .text-rose-300,
+  .text-rose-400 {
+    color: #E11D48 !important;
+  }
+
+  .text-amber-300,
+  .text-amber-400,
+  .text-amber-300\/80,
+  .text-yellow-300 {
+    color: #B45309 !important;
+  }
+
+  .text-cyan-300,
+  .text-cyan-400 {
+    color: #0891B2 !important;
+  }
+
+  /* 8. Inputs, Textareas, Selects & Date Pickers */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]),
   select,
   textarea {
     background-color: #FFFFFF !important;
@@ -110,59 +171,110 @@ html:not(.dark) {
     color: #0F172A !important;
   }
 
-  /* Header & Navigation in Light Mode */
+  /* 9. Header & Navigation Bars */
   header {
     background-color: rgba(255, 255, 255, 0.88) !important;
     border-color: #E2E8F0 !important;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
   }
 
   header h1 {
     color: #0F172A !important;
   }
 
-  footer {
-    background-color: #F8FAFC !important;
+  .sticky.top-20 {
+    background-color: rgba(248, 250, 252, 0.88) !important;
     border-color: #E2E8F0 !important;
   }
 
-  /* Badges with better light contrast */
-  .bg-emerald-500\/10 {
+  /* Inactive Navigation Pills */
+  .sticky.top-20 button:not(.bg-indigo-600) {
+    background-color: #FFFFFF !important;
+    color: #475569 !important;
+    border-color: #E2E8F0 !important;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+  }
+
+  .sticky.top-20 button:not(.bg-indigo-600):hover {
+    background-color: #F1F5F9 !important;
+    color: #0F172A !important;
+  }
+
+  /* Active Navigation Button */
+  .sticky.top-20 button.bg-indigo-600,
+  button.bg-indigo-600 {
+    background-color: #4F46E5 !important;
+    color: #FFFFFF !important;
+  }
+
+  button.bg-indigo-600 * {
+    color: #FFFFFF !important;
+  }
+
+  /* 10. Status Badges & Pills */
+  .bg-emerald-500\/10,
+  .bg-emerald-500\/20,
+  .bg-emerald-600\/20 {
     background-color: #ECFDF5 !important;
     color: #047857 !important;
     border-color: #A7F3D0 !important;
   }
 
-  .bg-amber-500\/10 {
+  .bg-amber-500\/10,
+  .bg-amber-500\/20,
+  .bg-amber-600\/20 {
     background-color: #FFFBEB !important;
     color: #B45309 !important;
     border-color: #FDE68A !important;
   }
 
   .bg-rose-500\/10,
-  .bg-red-500\/10 {
+  .bg-rose-500\/20,
+  .bg-red-500\/10,
+  .bg-red-500\/20 {
     background-color: #FFF1F2 !important;
     color: #BE123C !important;
     border-color: #FECDD3 !important;
   }
 
   .bg-indigo-500\/10,
-  .bg-indigo-600\/10 {
+  .bg-indigo-500\/20,
+  .bg-indigo-600\/10,
+  .bg-indigo-600\/20 {
     background-color: #EEF2FF !important;
     color: #4338CA !important;
     border-color: #C7D2FE !important;
   }
 
   .bg-cyan-500\/10,
-  .bg-cyan-600\/10 {
+  .bg-cyan-500\/20,
+  .bg-cyan-600\/10,
+  .bg-cyan-600\/20 {
     background-color: #ECFEFF !important;
     color: #0E7490 !important;
     border-color: #A5F3FC !important;
   }
 
-  /* Modals Backdrop in Light Mode */
-  .fixed.inset-0.bg-\[\#0B0F1A\]\/80 {
+  /* Pending / Inactive Badges in Light Mode */
+  span.bg-slate-800,
+  span.bg-slate-900,
+  span.bg-slate-950 {
+    background-color: #F1F5F9 !important;
+    color: #475569 !important;
+    border-color: #CBD5E1 !important;
+  }
+
+  /* 11. Modal Backdrops in Light Mode */
+  .fixed.inset-0.bg-\[\#0B0F1A\]\/80,
+  .fixed.inset-0[class*="bg-[#0B0F1A]"] {
     background-color: rgba(15, 23, 42, 0.45) !important;
+    backdrop-filter: blur(4px);
+  }
+
+  /* 12. Footer */
+  footer {
+    background-color: #F8FAFC !important;
+    border-color: #E2E8F0 !important;
   }
 }
 
@@ -194,3 +306,4 @@ html.dark ::-webkit-scrollbar-thumb {
 html.dark ::-webkit-scrollbar-thumb:hover {
   background: #334155;
 }
+
