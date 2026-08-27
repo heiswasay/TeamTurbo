@@ -18,6 +18,7 @@ import {
   AttendanceRecord, 
   AssignedTask, 
   Handover, 
+  HandoverStatus,
   UserProfile, 
   CompanyTag, 
   ReviewStatus, 
@@ -326,7 +327,25 @@ export function useTrackerData(currentUser: any, userProfile: UserProfile | null
     await updateDoc(doc(db, 'handovers', handoverId), {
       status: 'accepted',
       acknowledgedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     });
+  };
+
+  const updateHandoverStatus = async (handoverId: string, status: HandoverStatus) => {
+    const updates: any = {
+      status,
+      updatedAt: new Date().toISOString(),
+    };
+    if (status === 'accepted') {
+      updates.acknowledgedAt = new Date().toISOString();
+    } else if (status === 'completed') {
+      updates.completedAt = new Date().toISOString();
+    }
+    await updateDoc(doc(db, 'handovers', handoverId), updates);
+  };
+
+  const deleteHandover = async (handoverId: string) => {
+    await deleteDoc(doc(db, 'handovers', handoverId));
   };
 
   // Companies
@@ -376,6 +395,8 @@ export function useTrackerData(currentUser: any, userProfile: UserProfile | null
     deleteTask,
     createHandover,
     acknowledgeHandover,
+    updateHandoverStatus,
+    deleteHandover,
     addCompany,
     toggleArchiveCompany,
     deleteCompany,

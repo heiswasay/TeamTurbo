@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 
 export type MemberNavTab = 'daily' | 'assigned' | 'handovers' | 'history' | 'settings';
-export type AdminNavTab = 'live' | 'review' | 'queue' | 'attendance' | 'tasks' | 'team' | 'analytics' | 'settings';
+export type AdminNavTab = 'live' | 'review' | 'queue' | 'attendance' | 'tasks' | 'handovers' | 'team' | 'analytics' | 'settings';
 
 interface NavigationProps {
   role: UserRole;
@@ -27,6 +27,7 @@ interface NavigationProps {
     assignedTasksCount?: number;
     unackHandoversCount?: number;
     pendingQueueCount?: number;
+    adminHandoversCount?: number;
   };
 }
 
@@ -49,6 +50,13 @@ export const Navigation: React.FC<NavigationProps> = ({
       },
       { id: 'attendance', label: 'Attendance & HR', icon: Timer },
       { id: 'tasks', label: 'Task Delegation', icon: CheckCheck },
+      { 
+        id: 'handovers', 
+        label: 'Work Handovers', 
+        icon: ArrowRightLeft,
+        badge: badges.adminHandoversCount,
+        badgeColor: 'bg-amber-500 text-slate-950 font-bold'
+      },
       { id: 'team', label: 'Team Matrix', icon: Users },
       { id: 'analytics', label: 'Analytics & CSV', icon: BarChart3 },
       { id: 'settings', label: 'Admin Settings', icon: Settings },

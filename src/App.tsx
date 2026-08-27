@@ -21,6 +21,7 @@ import { AdminDailyReview } from './components/admin/AdminDailyReview';
 import { AdminUnreviewedQueue } from './components/admin/AdminUnreviewedQueue';
 import { AdminAttendanceTab } from './components/admin/AdminAttendanceTab';
 import { AdminTaskAssignment } from './components/admin/AdminTaskAssignment';
+import { AdminHandovers } from './components/admin/AdminHandovers';
 import { AdminTeamOverview } from './components/admin/AdminTeamOverview';
 import { AdminMonthlyAnalytics } from './components/admin/AdminMonthlyAnalytics';
 
@@ -53,6 +54,8 @@ function DashboardShell() {
     deleteTask,
     createHandover,
     acknowledgeHandover,
+    updateHandoverStatus,
+    deleteHandover,
     addCompany,
     toggleArchiveCompany,
     deleteCompany,
@@ -150,6 +153,7 @@ function DashboardShell() {
           assignedTasksCount: myTasks.filter((t) => t.status !== 'done').length,
           unackHandoversCount,
           pendingQueueCount,
+          adminHandoversCount: unackHandoversCount,
         }}
       />
 
@@ -355,6 +359,19 @@ function DashboardShell() {
                 onAssignTask={assignTask}
                 onUpdateStatus={updateTaskStatus}
                 onDeleteTask={deleteTask}
+              />
+            )}
+
+            {adminTab === 'handovers' && (
+              <AdminHandovers
+                handovers={handovers}
+                teamMembers={teamMembers}
+                companies={companies}
+                currentUserId={userProfile.uid}
+                currentUserName={userProfile.name}
+                onSendHandover={createHandover}
+                onUpdateStatus={updateHandoverStatus}
+                onDeleteHandover={deleteHandover}
               />
             )}
 
