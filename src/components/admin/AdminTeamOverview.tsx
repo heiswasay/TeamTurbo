@@ -823,6 +823,36 @@ export const AdminTeamOverview: React.FC<AdminTeamOverviewProps> = ({
                 </div>
               </div>
 
+              {/* Shift Presets */}
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  9-Hour Shift Presets
+                </label>
+                <div className="grid grid-cols-3 gap-1.5 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => { setNewUserShiftStart('09:30'); setNewUserShiftEnd('18:30'); }}
+                    className="p-1.5 rounded-lg bg-[#1F2636] hover:bg-slate-700 text-slate-300 border border-slate-700 font-semibold text-center"
+                  >
+                    09:30 - 18:30
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setNewUserShiftStart('12:00'); setNewUserShiftEnd('21:00'); }}
+                    className="p-1.5 rounded-lg bg-[#1F2636] hover:bg-slate-700 text-slate-300 border border-slate-700 font-semibold text-center"
+                  >
+                    12:00 - 21:00
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setNewUserShiftStart('10:30'); setNewUserShiftEnd('19:30'); }}
+                    className="p-1.5 rounded-lg bg-[#1F2636] hover:bg-slate-700 text-slate-300 border border-slate-700 font-semibold text-center"
+                  >
+                    10:30 - 19:30
+                  </button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1">Shift Start</label>
@@ -830,7 +860,7 @@ export const AdminTeamOverview: React.FC<AdminTeamOverviewProps> = ({
                     type="text"
                     value={newUserShiftStart}
                     onChange={(e) => setNewUserShiftStart(e.target.value)}
-                    placeholder="10:30"
+                    placeholder="09:30"
                     className="w-full bg-[#1F2636] border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white"
                   />
                 </div>
@@ -928,12 +958,42 @@ export const AdminTeamOverview: React.FC<AdminTeamOverviewProps> = ({
                 </select>
               </div>
 
+              {/* Shift Presets */}
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  9-Hour Shift Presets
+                </label>
+                <div className="grid grid-cols-3 gap-1.5 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => setEditingMember({ ...editingMember, shiftStart: '09:30', shiftEnd: '18:30' })}
+                    className="p-1.5 rounded-lg bg-[#1F2636] hover:bg-slate-700 text-slate-300 border border-slate-700 font-semibold text-center"
+                  >
+                    09:30 - 18:30
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingMember({ ...editingMember, shiftStart: '12:00', shiftEnd: '21:00' })}
+                    className="p-1.5 rounded-lg bg-[#1F2636] hover:bg-slate-700 text-slate-300 border border-slate-700 font-semibold text-center"
+                  >
+                    12:00 - 21:00
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingMember({ ...editingMember, shiftStart: '10:30', shiftEnd: '19:30' })}
+                    className="p-1.5 rounded-lg bg-[#1F2636] hover:bg-slate-700 text-slate-300 border border-slate-700 font-semibold text-center"
+                  >
+                    10:30 - 19:30
+                  </button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1">Shift Start</label>
                   <input
                     type="text"
-                    value={editingMember.shiftStart || '10:30'}
+                    value={editingMember.shiftStart || '09:30'}
                     onChange={(e) => setEditingMember({ ...editingMember, shiftStart: e.target.value })}
                     className="w-full bg-[#1F2636] border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white"
                   />

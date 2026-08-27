@@ -21,7 +21,10 @@ export function formatDateLabel(dateStr: string): string {
 export function formatTime(isoOrTimeStr?: string): string {
   if (!isoOrTimeStr) return '--:--';
   if (isoOrTimeStr.length === 5 && isoOrTimeStr.includes(':')) {
-    return isoOrTimeStr;
+    const [h, m] = isoOrTimeStr.split(':').map(Number);
+    const period = h >= 12 ? 'PM' : 'AM';
+    const displayH = h % 12 === 0 ? 12 : h % 12;
+    return `${displayH}:${String(m).padStart(2, '0')} ${period}`;
   }
   try {
     const d = new Date(isoOrTimeStr);
@@ -71,4 +74,231 @@ export function isPastDate(dateStr: string): boolean {
 
 export function isToday(dateStr: string): boolean {
   return dateStr === getTodayDateString();
+}
+
+/**
+ * Returns ordinal string (1st, 2nd, 3rd, etc.)
+ */
+export function getOrdinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+/**
+ * Determines the Saturday index within the month (1st, 2nd, 3rd, 4th, or 5th Saturday)
+ */
+export function getSaturdayIndexInMonth(dateStr: string): number {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  let count = 0;
+  for (let d = 1; d <= day; d++) {
+    const temp = new Date(year, month - 1, d);
+    if (temp.getDay() === 6) {
+      count++;
+    }
+  }
+  return count;
+}
+
+export type DayScheduleType = 'regular_work' | 'saturday_work' | 'saturday_off' | 'sunday_off';
+
+export interface DaySchedule {
+  date: string;
+  dayOfWeek: number;
+  dayName: string;
+  isWorkingDay: boolean;
+  expectedHours: number; // default 9 for working days
+  expectedMinutes: number; // default 540 for working days
+  dayType: DayScheduleType;
+  label: string;
+  saturdayIndex?: number;
+}
+
+/**
+ * Calculates whether a date is a required working day (9 hours) or off day.
+ * Rules:
+ * - Total shift timing of all members is 9 hours a day.
+ * - Alternative Saturday OFF:
+ *   - 1st Saturday of month: ON (Working Day, 9h)
+ *   - 2nd Saturday of month: OFF (Alternate Saturday Off, 0h)
+ *   - 3rd Saturday of month: ON (Working Day, 9h)
+ *   - 4th Saturday of month: OFF (Alternate Saturday Off, 0h)
+ *   - 5th Saturday of month: ON (Working Day, 9h)
+ * - Sunday: OFF (0h)
+ * - Monday - Friday: ON (Working Day, 9h)
+ */
+export function getDaySchedule(dateStr: string): DaySchedule {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const d = new Date(year, month - 1, day);
+  const dow = d.getDay();
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayName = dayNames[dow];
+
+  // Sunday = OFF
+  if (dow === 0) {
+    return {
+      date: dateStr,
+      dayOfWeek: 0,
+      dayName,
+      isWorkingDay: false,
+      expectedHours: 0,
+      expectedMinutes: 0,
+      dayType: 'sunday_off',
+      label: 'Sunday (Weekend Off)',
+    };
+  }
+
+  // Mon to Fri = Regular working day (9 hours)
+  if (dow >= 1 && dow <= 5) {
+    return {
+      date: dateStr,
+      dayOfWeek: dow,
+      dayName,
+      isWorkingDay: true,
+      expectedHours: 9,
+      expectedMinutes: 540,
+      dayType: 'regular_work',
+      label: 'Regular Working Day (9h)',
+    };
+  }
+
+  // Saturday (dow === 6): Check alternate Saturday off rule (1st Saturday ON)
+  const satIndex = getSaturdayIndexInMonth(dateStr);
+  const isSatWorking = satIndex % 2 === 1; // 1st, 3rd, 5th Saturday are ON
+  const satLabel = `${getOrdinal(satIndex)} Saturday`;
+
+  if (isSatWorking) {
+    return {
+      date: dateStr,
+      dayOfWeek: 6,
+      dayName,
+      isWorkingDay: true,
+      expectedHours: 9,
+      expectedMinutes: 540,
+      dayType: 'saturday_work',
+      label: `${satLabel} (Working Day - 9h)`,
+      saturdayIndex: satIndex,
+    };
+  } else {
+    return {
+      date: dateStr,
+      dayOfWeek: 6,
+      dayName,
+      isWorkingDay: false,
+      expectedHours: 0,
+      expectedMinutes: 0,
+      dayType: 'saturday_off',
+      label: `${satLabel} (Alternate Off)`,
+      saturdayIndex: satIndex,
+    };
+  }
+}
+
+/**
+ * Checks punctuality against a 30-minute grace period from shift start time.
+ * If user clocks in > 30 minutes after start time, they are marked Late.
+ */
+export function checkPunctuality(
+  shiftStart: string = '09:30',
+  firstLoginAt?: string
+): {
+  isLate: boolean;
+  minutesFromStart: number;
+  minutesPastGrace: number;
+  graceLimitTime: string;
+  label: string;
+  badgeClass: string;
+} {
+  if (!firstLoginAt) {
+    return {
+      isLate: false,
+      minutesFromStart: 0,
+      minutesPastGrace: 0,
+      graceLimitTime: '',
+      label: 'No Clock In',
+      badgeClass: 'bg-slate-800 text-slate-400 border-slate-700',
+    };
+  }
+
+  // Parse shiftStart into hours and minutes
+  let startH = 9;
+  let startM = 30;
+  if (shiftStart) {
+    const parts = shiftStart.split(':').map(Number);
+    if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      startH = parts[0];
+      startM = parts[1];
+    }
+  }
+
+  const shiftStartMinutes = startH * 60 + startM;
+  const graceLimitMinutes = shiftStartMinutes + 30; // 30 minutes grace period
+  const graceLimitH = Math.floor(graceLimitMinutes / 60) % 24;
+  const graceLimitM = graceLimitMinutes % 60;
+  const gracePeriodStr = `${graceLimitH % 12 === 0 ? 12 : graceLimitH % 12}:${String(graceLimitM).padStart(2, '0')} ${graceLimitH >= 12 ? 'PM' : 'AM'}`;
+
+  // Parse firstLoginAt
+  let loginMinutes = 0;
+  if (firstLoginAt.includes('T')) {
+    // ISO string
+    const d = new Date(firstLoginAt);
+    loginMinutes = d.getHours() * 60 + d.getMinutes();
+  } else if (firstLoginAt.includes(':')) {
+    const parts = firstLoginAt.split(':').map(Number);
+    loginMinutes = parts[0] * 60 + parts[1];
+  }
+
+  const minutesFromStart = loginMinutes - shiftStartMinutes;
+  const minutesPastGrace = loginMinutes - graceLimitMinutes;
+
+  if (loginMinutes > graceLimitMinutes) {
+    return {
+      isLate: true,
+      minutesFromStart,
+      minutesPastGrace,
+      graceLimitTime: gracePeriodStr,
+      label: `Late by ${minutesFromStart}m (${minutesPastGrace}m past grace)`,
+      badgeClass: 'bg-rose-950/80 text-rose-300 border-rose-800',
+    };
+  } else if (minutesFromStart > 0) {
+    return {
+      isLate: false,
+      minutesFromStart,
+      minutesPastGrace: 0,
+      graceLimitTime: gracePeriodStr,
+      label: `On Time (${minutesFromStart}m grace used)`,
+      badgeClass: 'bg-emerald-950/70 text-emerald-300 border-emerald-800/70',
+    };
+  } else {
+    return {
+      isLate: false,
+      minutesFromStart,
+      minutesPastGrace: 0,
+      graceLimitTime: gracePeriodStr,
+      label: 'Early / On Time',
+      badgeClass: 'bg-emerald-950/70 text-emerald-300 border-emerald-800/70',
+    };
+  }
+}
+
+/**
+ * Returns all dates for a given month (YYYY-MM-DD)
+ */
+export function getDaysInMonth(year: number, month: number): string[] {
+  const dates: string[] = [];
+  const daysCount = new Date(year, month, 0).getDate();
+  for (let d = 1; d <= daysCount; d++) {
+    const mStr = String(month).padStart(2, '0');
+    const dStr = String(d).padStart(2, '0');
+    dates.push(`${year}-${mStr}-${dStr}`);
+  }
+  return dates;
+}
+
+/**
+ * Format month label (e.g. August 2026)
+ */
+export function formatMonthYearLabel(year: number, month: number): string {
+  const d = new Date(year, month - 1, 1);
+  return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }

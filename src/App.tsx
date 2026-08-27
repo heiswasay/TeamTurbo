@@ -347,6 +347,7 @@ function DashboardShell() {
               <AdminAttendanceTab
                 attendanceRecords={attendanceRecords}
                 teamMembers={teamMembers}
+                onUpdateUser={updateUserByAdmin}
               />
             )}
 
