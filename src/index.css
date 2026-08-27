@@ -276,6 +276,25 @@ html:not(.dark) {
     background-color: #F8FAFC !important;
     border-color: #E2E8F0 !important;
   }
+
+  /* 13. Notification Toasts in Light Mode */
+  .notification-toast-item {
+    background-color: #FFFFFF !important;
+    border-color: #E2E8F0 !important;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  .notification-toast-item h4 {
+    color: #0F172A !important;
+  }
+
+  .notification-toast-item p {
+    color: #475569 !important;
+  }
+
+  .notification-toast-item span {
+    color: #94A3B8 !important;
+  }
 }
 
 /* ========================================================================= */

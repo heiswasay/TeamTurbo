@@ -10,7 +10,7 @@ import {
 
 export interface InAppToast {
   id: string;
-  type: 'task' | 'handover' | 'rework' | 'review' | 'log' | 'info';
+  type: 'task' | 'handover' | 'rework' | 'review' | 'reopen' | 'log' | 'info';
   title: string;
   message: string;
   timestamp: string;
@@ -147,8 +147,27 @@ export function useChromeNotifications({
           }
         } else {
           // Existing task updated
-          if (isAdmin && prev.status !== task.status && task.assignedBy === userProfile.uid) {
-            const title = `✅ Task Marked ${task.status.toUpperCase()}`;
+          // 1. Task re-opened for the assigned user
+          if (task.assignedTo === userProfile.uid && prev.status === 'done' && (task.status === 'open' || task.status === 'in_progress')) {
+            const title = '🔄 Task Re-Opened';
+            const body = `${task.assignedByName || 'Admin'} re-opened task: "${task.title}"`;
+
+            sendChromeNotification({
+              title,
+              body,
+              tag: `task-reopen-${task.id}-${Date.now()}`,
+              soundEnabled,
+            });
+
+            addToast({
+              type: 'reopen',
+              title,
+              message: body,
+            });
+          }
+          // 2. Admin notified when a member updates status
+          else if (isAdmin && prev.status !== task.status && task.assignedBy === userProfile.uid && task.assignedTo !== userProfile.uid) {
+            const title = task.status === 'done' ? '✅ Task Marked DONE' : `📋 Task Updated: ${task.status.toUpperCase()}`;
             const body = `${task.assignedToName || 'Member'} updated task: "${task.title}"`;
 
             sendChromeNotification({
@@ -269,37 +288,76 @@ export function useChromeNotifications({
           });
         }
       } else {
-        // Existing entry review updated
-        if (entry.userId === userProfile.uid && prev.review !== entry.review) {
-          if (entry.review === 'needs_rework' && reworkEnabled) {
-            const title = '⚠️ Work Entry Needs Rework';
-            const body = `${entry.reviewedByName || 'Admin'} requested rework: "${entry.remarks || entry.taskText.slice(0, 40)}"`;
+        // Existing entry review or status updated for the user
+        if (entry.userId === userProfile.uid) {
+          // Review state changed
+          if (prev.review !== entry.review) {
+            if (entry.review === 'needs_rework' && reworkEnabled) {
+              const title = '⚠️ Work Marked for Rework';
+              const body = `${entry.reviewedByName || 'Admin'} requested rework on "${entry.company || 'Task'}": ${entry.remarks ? `"${entry.remarks}"` : `"${entry.taskText.slice(0, 40)}"`}`;
+
+              sendChromeNotification({
+                title,
+                body,
+                tag: `entry-rework-${entry.id}`,
+                soundEnabled,
+              });
+
+              addToast({
+                type: 'rework',
+                title,
+                message: body,
+              });
+            } else if (entry.review === 'ok') {
+              const title = '✅ Work Entry Approved';
+              const body = `${entry.reviewedByName || 'Admin'} approved "${entry.company || ''} - ${entry.taskText.slice(0, 40)}"`;
+
+              sendChromeNotification({
+                title,
+                body,
+                tag: `entry-ok-${entry.id}`,
+                soundEnabled,
+              });
+
+              addToast({
+                type: 'review',
+                title,
+                message: body,
+              });
+            } else if (entry.review === 'pending' && (prev.review === 'ok' || prev.review === 'needs_rework')) {
+              // Admin re-opened work entry review
+              const title = '🔄 Work Entry Re-Opened';
+              const body = `${entry.reviewedByName || 'Admin'} re-opened work entry for "${entry.company || 'Task'}": "${entry.taskText.slice(0, 45)}"`;
+
+              sendChromeNotification({
+                title,
+                body,
+                tag: `entry-reopen-${entry.id}-${Date.now()}`,
+                soundEnabled,
+              });
+
+              addToast({
+                type: 'reopen',
+                title,
+                message: body,
+              });
+            }
+          }
+
+          // Work status re-opened from completed back to pending or in_progress
+          if (prev.status === 'completed' && (entry.status === 'in_progress' || entry.status === 'pending')) {
+            const title = '🔄 Work Re-Opened';
+            const body = `Work on "${entry.company || 'Task'}" (${entry.taskText.slice(0, 40)}) is active again.`;
 
             sendChromeNotification({
               title,
               body,
-              tag: `entry-rework-${entry.id}`,
+              tag: `entry-status-reopen-${entry.id}-${Date.now()}`,
               soundEnabled,
             });
 
             addToast({
-              type: 'rework',
-              title,
-              message: body,
-            });
-          } else if (entry.review === 'ok') {
-            const title = '✅ Work Entry Approved';
-            const body = `${entry.reviewedByName || 'Admin'} approved "${entry.taskText.slice(0, 40)}"`;
-
-            sendChromeNotification({
-              title,
-              body,
-              tag: `entry-ok-${entry.id}`,
-              soundEnabled,
-            });
-
-            addToast({
-              type: 'review',
+              type: 'reopen',
               title,
               message: body,
             });
