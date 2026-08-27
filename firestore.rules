@@ -21,49 +21,40 @@ service cloud.firestore {
 
     // Users Collection
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
     // Work Entries Collections
     match /work_entries/{entryId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
+      allow read, write: if true;
     }
 
     match /workEntries/{entryId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
+      allow read, write: if true;
     }
 
     // Assigned Tasks Collections
     match /assigned_tasks/{taskId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
+      allow read, write: if true;
     }
 
     match /assignedTasks/{taskId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
+      allow read, write: if true;
     }
 
     // Handovers Collection
     match /handovers/{handoverId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
+      allow read, write: if true;
     }
 
     // Attendance Collection
     match /attendance/{attendanceId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
+      allow read, write: if true;
     }
 
     // Companies Collection
     match /companies/{companyId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read, write: if true;
     }
   }
 }

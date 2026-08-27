@@ -69,32 +69,10 @@ export const LoginView: React.FC = () => {
     setSuccessMsg('');
     const defaultPassword = 'TeamTurbo123!';
     try {
-      // First attempt to login
-      try {
-        await signIn(account.email, defaultPassword);
-        return;
-      } catch (loginErr: any) {
-        // If user not found, create it!
-        if (loginErr.code === 'auth/user-not-found' || loginErr.code === 'auth/invalid-credential' || loginErr.code === 'auth/user-disabled') {
-          await createTeamMember({
-            email: account.email,
-            name: account.name,
-            role: account.role,
-            designation: account.designation,
-            shiftStart: account.shiftStart || '10:30',
-            shiftEnd: account.shiftEnd || '18:30',
-            temporaryPassword: defaultPassword,
-          });
-          // Now sign in
-          await signIn(account.email, defaultPassword);
-          return;
-        } else {
-          throw loginErr;
-        }
-      }
+      await signIn(account.email, defaultPassword);
     } catch (err: any) {
       console.error("Quick account setup error:", err);
-      setError(err.message || 'Failed to sign in. Please verify Firebase Authentication is enabled in console.');
+      setError(err.message || 'Failed to sign in. Please verify your credentials.');
     } finally {
       setSeedingAccount(false);
     }
