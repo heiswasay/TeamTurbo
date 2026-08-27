@@ -6,6 +6,8 @@ import { LoginView } from './components/auth/LoginView';
 import { ForcePasswordChangeModal } from './components/auth/ForcePasswordChangeModal';
 import { Header } from './components/common/Header';
 import { Navigation, MemberNavTab, AdminNavTab } from './components/common/Navigation';
+import { NotificationToasts } from './components/common/NotificationToasts';
+import { useChromeNotifications } from './hooks/useChromeNotifications';
 
 // Member Components
 import { AttendanceWidget } from './components/member/AttendanceWidget';
@@ -67,6 +69,20 @@ function DashboardShell() {
   const [memberTab, setMemberTab] = useState<MemberNavTab>('daily');
   const [adminTab, setAdminTab] = useState<AdminNavTab>('live');
 
+  // Real-Time Chrome Desktop Notifications Hook
+  const {
+    permission: notifPermission,
+    toasts,
+    promptEnableNotifications,
+    sendTestNotification,
+    dismissToast,
+  } = useChromeNotifications({
+    userProfile,
+    tasks,
+    handovers,
+    entries,
+  });
+
   // Pre-filled work task state if member clicks "Log in Daily Work" from tasks widget
   const [prefilledTaskText, setPrefilledTaskText] = useState<string>('');
 
@@ -124,10 +140,15 @@ function DashboardShell() {
       {/* Force Password Change on initial temporary credentials */}
       <ForcePasswordChangeModal />
 
+      {/* Floating In-App Real-Time Notification Toasts */}
+      <NotificationToasts toasts={toasts} onDismiss={dismissToast} />
+
       {/* Primary Sticky Header */}
       <Header
         todayAttendance={todayAttendance}
         unreadCount={reworkEntries.length + unackHandoversCount}
+        notificationPermission={notifPermission}
+        onPromptNotifications={promptEnableNotifications}
         onOpenSettings={() => {
           if (isAdmin) {
             setAdminTab('settings');
@@ -306,6 +327,9 @@ function DashboardShell() {
                 onDeleteCompany={deleteCompany}
                 onUpdateUserByAdmin={updateUserByAdmin}
                 onDeleteUserByAdmin={deleteUserByAdmin}
+                notificationPermission={notifPermission}
+                onPromptNotifications={promptEnableNotifications}
+                onSendTestNotification={sendTestNotification}
               />
             )}
           </div>
@@ -410,6 +434,9 @@ function DashboardShell() {
                 onDeleteCompany={deleteCompany}
                 onUpdateUserByAdmin={updateUserByAdmin}
                 onDeleteUserByAdmin={deleteUserByAdmin}
+                notificationPermission={notifPermission}
+                onPromptNotifications={promptEnableNotifications}
+                onSendTestNotification={sendTestNotification}
               />
             )}
           </div>

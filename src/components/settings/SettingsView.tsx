@@ -7,6 +7,9 @@ import {
   Moon, 
   Sun, 
   Bell, 
+  BellRing,
+  Volume2,
+  VolumeX,
   Clock, 
   LogOut, 
   Users, 
@@ -24,6 +27,13 @@ import {
   Sparkles,
   ChevronDown
 } from 'lucide-react';
+import { 
+  getNotificationPermissionStatus, 
+  requestNotificationPermission, 
+  sendChromeNotification, 
+  NotificationPermissionStatus,
+  isNotificationSupported 
+} from '../../lib/notificationService';
 
 interface SettingsViewProps {
   teamMembers: UserProfile[];
@@ -31,6 +41,9 @@ interface SettingsViewProps {
   onAddCompany: (name: string) => Promise<void>;
   onToggleArchiveCompany: (id: string, archived: boolean) => Promise<void>;
   onUpdateUserByAdmin: (uid: string, updates: Partial<UserProfile>) => Promise<void>;
+  onSendTestNotification?: () => void;
+  onPromptNotifications?: () => void;
+  notificationPermission?: NotificationPermissionStatus;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -39,6 +52,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onAddCompany,
   onToggleArchiveCompany,
   onUpdateUserByAdmin,
+  onSendTestNotification,
+  onPromptNotifications,
+  notificationPermission: externalPermission,
 }) => {
   const { 
     currentUser, 
@@ -54,6 +70,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const isAdmin = userProfile?.role === 'admin';
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'appearance' | 'notifications' | 'shift' | 'team'>('profile');
+
+  // Notification state
+  const [browserPermission, setBrowserPermission] = useState<NotificationPermissionStatus>(
+    externalPermission || getNotificationPermissionStatus()
+  );
+  const [testSentMsg, setTestSentMsg] = useState(false);
 
   // Profile tab state
   const [name, setName] = useState(userProfile?.name || '');
@@ -75,6 +97,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     newTask: userProfile?.notificationPreferences?.newTask ?? true,
     handover: userProfile?.notificationPreferences?.handover ?? true,
     rework: userProfile?.notificationPreferences?.rework ?? true,
+    adminNewLog: userProfile?.notificationPreferences?.adminNewLog ?? true,
+    soundEnabled: userProfile?.notificationPreferences?.soundEnabled ?? true,
   });
 
   // Admin: Add User state
@@ -147,7 +171,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  const handleToggleNotif = async (key: 'newTask' | 'handover' | 'rework') => {
+  const handleToggleNotif = async (key: 'newTask' | 'handover' | 'rework' | 'adminNewLog' | 'soundEnabled') => {
     const updated = { ...notifState, [key]: !notifState[key] };
     setNotifState(updated);
     try {
@@ -155,6 +179,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     } catch (e) {
       console.error('Failed to update notification preference:', e);
     }
+  };
+
+  const handleRequestChromePermission = async () => {
+    if (onPromptNotifications) {
+      await onPromptNotifications();
+      setBrowserPermission(getNotificationPermissionStatus());
+    } else {
+      const res = await requestNotificationPermission();
+      setBrowserPermission(res);
+    }
+  };
+
+  const handleTestNotificationClick = () => {
+    if (onSendTestNotification) {
+      onSendTestNotification();
+    } else {
+      sendChromeNotification({
+        title: '🔔 Chrome Notification Test',
+        body: 'Real-time alerts for tasks, handovers, and reviews are active!',
+        tag: `test-${Date.now()}`,
+        soundEnabled: notifState.soundEnabled,
+      });
+    }
+    setTestSentMsg(true);
+    setTimeout(() => setTestSentMsg(false), 3000);
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -515,49 +564,160 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* Tab 4: Notifications */}
       {activeTab === 'notifications' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-5">
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
           <div>
-            <h3 className="text-base font-bold text-white">Notification Preferences</h3>
-            <p className="text-xs text-slate-400">Configure notifications and badge triggers</p>
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <BellRing className="w-5 h-5 text-indigo-400" />
+              Chrome Desktop Notifications & Alerts
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Receive real-time desktop popups and audio chimes whenever tasks, handovers, or reviews are updated.
+            </p>
           </div>
 
-          <div className="space-y-3 max-w-lg">
+          {/* Chrome Permission Status Banner */}
+          <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 max-w-xl space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className={`p-2 rounded-xl border ${
+                  browserPermission === 'granted'
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    : browserPermission === 'denied'
+                    ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                    : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                }`}>
+                  <Bell className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white">Browser Permission Status</h4>
+                  <p className="text-[11px] text-slate-400">
+                    {browserPermission === 'granted'
+                      ? 'Chrome desktop notifications are granted and active'
+                      : browserPermission === 'denied'
+                      ? 'Notifications are blocked in your browser settings'
+                      : 'Permission has not been requested yet'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {browserPermission === 'granted' ? (
+                  <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full text-xs font-bold flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Active
+                  </span>
+                ) : browserPermission === 'denied' ? (
+                  <span className="px-3 py-1 bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-full text-xs font-bold flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    Blocked
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleRequestChromePermission}
+                    className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/20"
+                  >
+                    Enable in Chrome
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {browserPermission === 'denied' && (
+              <p className="text-[11px] text-rose-300/80 bg-rose-950/30 p-2.5 rounded-xl border border-rose-800/30">
+                Tip: To unblock, click the lock/tune icon on the left of your browser URL bar, enable "Notifications", and reload the tab.
+              </p>
+            )}
+
+            {/* Test Notification Button */}
+            <div className="pt-2 border-t border-slate-900 flex items-center justify-between">
+              <span className="text-xs text-slate-400">Verify desktop popup:</span>
+              <button
+                type="button"
+                onClick={handleTestNotificationClick}
+                className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5"
+              >
+                <BellRing className="w-3.5 h-3.5 text-indigo-400" />
+                {testSentMsg ? 'Notification Sent!' : 'Send Test Chrome Notification'}
+              </button>
+            </div>
+          </div>
+
+          {/* Granular Notification Triggers */}
+          <div className="space-y-3 max-w-xl">
+            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+              Notification Triggers
+            </h4>
+
             <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
               <div>
                 <h4 className="text-xs font-bold text-white">New Task Assigned</h4>
-                <p className="text-[11px] text-slate-400">Receive alert when team lead assigns deliverables</p>
+                <p className="text-[11px] text-slate-400">Receive Chrome alert when team lead assigns you a new task</p>
               </div>
               <input
                 type="checkbox"
                 checked={notifState.newTask}
                 onChange={() => handleToggleNotif('newTask')}
-                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
               />
             </div>
 
             <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
               <div>
-                <h4 className="text-xs font-bold text-white">Handover Received</h4>
-                <p className="text-[11px] text-slate-400">Highlight pending handover transfers from teammates</p>
+                <h4 className="text-xs font-bold text-white">Handover Submitted / Received</h4>
+                <p className="text-[11px] text-slate-400">Alert when a teammate transfers a handover or acknowledges yours</p>
               </div>
               <input
                 type="checkbox"
                 checked={notifState.handover}
                 onChange={() => handleToggleNotif('handover')}
-                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
               />
             </div>
 
             <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
               <div>
-                <h4 className="text-xs font-bold text-white">Work Marked as Needing Rework</h4>
-                <p className="text-[11px] text-slate-400">Display top action items for revisions requested by lead</p>
+                <h4 className="text-xs font-bold text-white">Work Review & Rework Requests</h4>
+                <p className="text-[11px] text-slate-400">Alert when lead approves work or flags items for rework feedback</p>
               </div>
               <input
                 type="checkbox"
                 checked={notifState.rework}
                 onChange={() => handleToggleNotif('rework')}
-                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+              />
+            </div>
+
+            {isAdmin && (
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-white">Team Work Logs (Admin)</h4>
+                  <p className="text-[11px] text-slate-400">Notify when any team member submits daily work entries</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={notifState.adminNewLog}
+                  onChange={() => handleToggleNotif('adminNewLog')}
+                  className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                />
+              </div>
+            )}
+
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-slate-900 text-slate-300 border border-slate-800">
+                  {notifState.soundEnabled ? <Volume2 className="w-4 h-4 text-indigo-400" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white">Audio Notification Chime</h4>
+                  <p className="text-[11px] text-slate-400">Play pleasant subtle double-ding sound on notification</p>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={notifState.soundEnabled}
+                onChange={() => handleToggleNotif('soundEnabled')}
+                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
               />
             </div>
           </div>

@@ -3,11 +3,13 @@ import { useAuth } from '../../context/AuthContext';
 import { AttendanceRecord, WorkEntry, AssignedTask, Handover } from '../../types';
 import { formatDuration, getTodayDateString } from '../../lib/dateUtils';
 import faviconIcon from '../../images/favicon.png';
+import { NotificationPermissionStatus } from '../../lib/notificationService';
 import { 
   Clock, 
   Moon, 
   Sun, 
   Bell, 
+  BellRing,
   User, 
   LogOut, 
   ShieldCheck, 
@@ -21,12 +23,16 @@ interface HeaderProps {
   todayAttendance: AttendanceRecord | null;
   unreadCount: number;
   onOpenSettings: () => void;
+  notificationPermission?: NotificationPermissionStatus;
+  onPromptNotifications?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   todayAttendance,
   unreadCount,
   onOpenSettings,
+  notificationPermission,
+  onPromptNotifications,
 }) => {
   const { userProfile, signOut, theme, setTheme } = useAuth();
   const [showSignOutModal, setShowSignOutModal] = useState(false);
@@ -105,16 +111,44 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </div>
 
-          {/* Unread notification icon with badge */}
-          {unreadCount > 0 && (
-            <div className="relative">
-              <div className="absolute -top-1.5 -right-1.5 min-w-4 h-4 px-1 bg-red-500 rounded-full border-2 border-[#0B0F1A] text-[9px] flex items-center justify-center text-white font-bold animate-pulse">
-                {unreadCount}
-              </div>
-              <div className="p-2.5 rounded-xl bg-[#161B27] border border-slate-800 text-slate-400">
-                <Bell className="w-4 h-4" />
-              </div>
-            </div>
+          {/* Chrome Notifications Trigger / Status */}
+          {notificationPermission === 'default' && onPromptNotifications ? (
+            <button
+              type="button"
+              onClick={onPromptNotifications}
+              title="Click to enable Chrome desktop alerts for new tasks, handovers, and reviews"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/25 transition-all animate-pulse"
+            >
+              <BellRing className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Enable Chrome Alerts</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              title={
+                notificationPermission === 'granted'
+                  ? 'Chrome Notifications Active (Click to manage)'
+                  : notificationPermission === 'denied'
+                  ? 'Chrome Notifications Blocked (Check browser settings)'
+                  : 'Manage Notifications'
+              }
+              className="relative p-2.5 rounded-xl bg-[#161B27] hover:bg-[#1F2636] border border-slate-800 text-slate-400 hover:text-indigo-400 transition-colors"
+            >
+              <Bell className="w-4 h-4" />
+              {notificationPermission === 'granted' ? (
+                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-[#161B27]" />
+              ) : notificationPermission === 'denied' ? (
+                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-[#161B27]" />
+              ) : null}
+
+              {/* Unread badge count if any */}
+              {unreadCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-4 h-4 px-1 bg-red-500 rounded-full border-2 border-[#0B0F1A] text-[9px] flex items-center justify-center text-white font-bold animate-pulse">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
           )}
 
           {/* User Profile Pill */}

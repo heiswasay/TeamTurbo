@@ -15,6 +15,8 @@ export interface NotificationPreferences {
   newTask: boolean;
   handover: boolean;
   rework: boolean;
+  adminNewLog?: boolean;
+  soundEnabled?: boolean;
 }
 
 export interface UserProfile {
