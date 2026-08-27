@@ -282,9 +282,9 @@ export const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({
           <div className="flex items-center gap-1.5">
             {/* Punctuality Status Badge */}
             {punctualityInfo.isLate && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
-                <AlertCircle className="w-3 h-3 text-rose-400" />
-                {attendance?.firstLoginAt ? 'LATE ARRIVAL' : 'OVERDUE LATE'}
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/40">
+                <AlertTriangle className="w-3 h-3 text-rose-400" />
+                LATE
               </span>
             )}
             {!punctualityInfo.isLate && punctualityInfo.hasClockedIn && (
@@ -341,38 +341,6 @@ export const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({
             <span>Relaxation Cutoff: <strong className="text-amber-400">{punctualityInfo.relaxationLimitTime}</strong></span>
           </div>
         </div>
-
-        {/* Punctuality Alert Banner */}
-        {punctualityInfo.isLate && (
-          <div className="mb-2 p-3 bg-rose-950/40 border border-rose-500/40 rounded-2xl flex items-start gap-2.5 text-xs text-rose-200">
-            <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-            <div>
-              <span className="font-bold text-rose-300">
-                {attendance?.firstLoginAt ? 'Late Clock-in Recorded:' : 'Late Arrival Notice:'}
-              </span>
-              <p className="text-[11px] text-rose-200/90 mt-0.5 leading-relaxed">
-                {attendance?.firstLoginAt ? (
-                  <>
-                    Clocked in at <strong>{punctualityInfo.clockInTimeFormatted}</strong> ({punctualityInfo.minutesFromStart}m from start, {punctualityInfo.minutesPastGrace}m past 30m relaxation period). You have been marked <strong>LATE</strong> for today.
-                  </>
-                ) : (
-                  <>
-                    Shift started at <strong>{punctualityInfo.shiftStartTimeFormatted}</strong>. The 30m relaxation grace expired at <strong>{punctualityInfo.relaxationLimitTime}</strong>. You are currently <strong>{punctualityInfo.minutesFromStart}m late</strong> ({punctualityInfo.minutesPastGrace}m overdue) and will be marked <strong>LATE</strong> upon clocking in.
-                  </>
-                )}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {!punctualityInfo.isLate && punctualityInfo.hasClockedIn && (
-          <div className="mb-2 px-3 py-2 bg-emerald-950/30 border border-emerald-500/30 rounded-2xl flex items-center gap-2 text-xs text-emerald-300">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span className="text-[11px]">
-              Clocked in at <strong>{punctualityInfo.clockInTimeFormatted}</strong> — On Time (Within 30m relaxation grace).
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Bottom Section: Primary Action Button & Sessions Toggle */}

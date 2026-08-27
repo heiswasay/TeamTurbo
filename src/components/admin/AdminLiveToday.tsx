@@ -303,95 +303,6 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
 
       </div>
 
-      {/* DEDICATED LATE & OVERDUE ARRIVALS SECTION */}
-      {lateMembersList.length > 0 ? (
-        <div className="bg-rose-950/20 border border-rose-600/40 rounded-3xl p-5 shadow-2xl relative overflow-hidden space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-rose-500/20 pb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-rose-500/20 border border-rose-500/40 rounded-xl text-rose-400">
-                <ShieldAlert className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-rose-200 flex items-center gap-2">
-                  <span>🚨 Late & Overdue Staff Arrivals Today ({lateMembersList.length})</span>
-                </h3>
-                <p className="text-xs text-rose-300/80">
-                  These employees arrived or are clocking in after the 30-minute relaxation threshold
-                </p>
-              </div>
-            </div>
-
-            <span className="px-3 py-1 bg-rose-500/20 border border-rose-500/40 text-rose-300 rounded-full text-xs font-black uppercase tracking-wider">
-              {lateMembersList.length} Marked Late
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {lateMembersList.map(({ member, attendance: att, punct }) => (
-              <div
-                key={`late-card-${member.uid}`}
-                className="bg-[#161B27]/90 border border-rose-600/30 rounded-2xl p-4 flex flex-col justify-between hover:border-rose-500/50 transition-all shadow-md"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-rose-600 font-bold text-white shadow-lg shadow-rose-600/30 flex items-center justify-center text-sm border border-rose-400/30 shrink-0">
-                      {member.name.charAt(0)}
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-white leading-snug">
-                        {member.name}
-                      </h4>
-                      <p className="text-xs text-slate-400">
-                        {member.designation}
-                      </p>
-                    </div>
-                  </div>
-
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm animate-pulse shrink-0">
-                    {punct.hasClockedIn ? `LATE (+${punct.minutesFromStart}m)` : `OVERDUE (+${punct.minutesPastGrace}m)`}
-                  </span>
-                </div>
-
-                <div className="mt-3 pt-2.5 border-t border-slate-800/80 space-y-1.5 text-xs text-slate-300">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-slate-400">Shift Start:</span>
-                    <span className="font-semibold text-slate-200">{punct.shiftStartTimeFormatted}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-slate-400">30m Relaxation Cutoff:</span>
-                    <span className="font-semibold text-amber-400">{punct.relaxationLimitTime}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-slate-400">Clock-In Time:</span>
-                    <span className="font-bold text-rose-300">{punct.clockInTimeFormatted}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-800">
-                    <span className="text-rose-400 font-semibold">Violation:</span>
-                    <span className="font-bold text-rose-300">
-                      {punct.hasClockedIn
-                        ? `${punct.minutesPastGrace}m past 30m relaxation`
-                        : `${punct.minutesPastGrace}m overdue (Not arrived yet)`}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : daySchedule.isWorkingDay ? (
-        <div className="bg-emerald-950/20 border border-emerald-500/30 rounded-3xl p-4 flex items-center justify-between gap-3 text-xs text-emerald-300">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-            <span>
-              <strong>Punctuality Status:</strong> All team members who have clocked in arrived on time within the 30-minute relaxation threshold today.
-            </span>
-          </div>
-          <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-300 rounded-full text-[11px] font-bold shrink-0">
-            0 Late
-          </span>
-        </div>
-      ) : null}
-
       {/* Quick Team Shift Clocks Overview Strip */}
       <div className="bg-[#161B27] border border-slate-800 rounded-3xl p-5 shadow-xl space-y-3">
         <div className="flex items-center justify-between">
@@ -419,7 +330,8 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
                   <div className="flex items-center gap-1.5">
                     <p className="text-xs font-bold text-white truncate">{member.name}</p>
                     {punct.isLate && (
-                      <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider bg-rose-500/30 text-rose-300 border border-rose-500/40">
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/40 shrink-0">
+                        <AlertTriangle className="w-2.5 h-2.5 text-rose-400" />
                         LATE
                       </span>
                     )}
@@ -463,8 +375,9 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
                         {member.name}
                       </h3>
                       {punct.isLate && (
-                        <span className="text-[10px] px-2 py-0.5 bg-rose-500/20 text-rose-300 border border-rose-500/40 rounded-full font-black uppercase tracking-wider animate-pulse">
-                          {punct.hasClockedIn ? `LATE (+${punct.minutesFromStart}m)` : `OVERDUE (+${punct.minutesPastGrace}m)`}
+                        <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-rose-500/20 text-rose-400 border border-rose-500/40 rounded-full font-bold uppercase tracking-wider">
+                          <AlertTriangle className="w-2.5 h-2.5 text-rose-400" />
+                          LATE
                         </span>
                       )}
                       {member.role === 'admin' && (
