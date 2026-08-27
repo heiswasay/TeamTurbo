@@ -58,6 +58,7 @@ function DashboardShell() {
     acknowledgeHandover,
     updateHandoverStatus,
     deleteHandover,
+    deleteAttendanceRecord,
     addCompany,
     toggleArchiveCompany,
     deleteCompany,
@@ -346,6 +347,7 @@ function DashboardShell() {
                 attendanceRecords={attendanceRecords}
                 teamMembers={teamMembers}
                 onUpdateReview={updateEntryReview}
+                onDeleteEntry={deleteWorkEntry}
                 adminName={userProfile.name}
               />
             )}
@@ -355,6 +357,7 @@ function DashboardShell() {
                 entries={entries}
                 teamMembers={teamMembers}
                 onUpdateReview={updateEntryReview}
+                onDeleteEntry={deleteWorkEntry}
                 adminName={userProfile.name}
               />
             )}
@@ -363,6 +366,7 @@ function DashboardShell() {
               <AdminUnreviewedQueue
                 entries={entries}
                 onUpdateReview={updateEntryReview}
+                onDeleteEntry={deleteWorkEntry}
                 adminName={userProfile.name}
               />
             )}
@@ -372,6 +376,7 @@ function DashboardShell() {
                 attendanceRecords={attendanceRecords}
                 teamMembers={teamMembers}
                 onUpdateUser={updateUserByAdmin}
+                onDeleteAttendance={deleteAttendanceRecord}
               />
             )}
 
@@ -414,6 +419,7 @@ function DashboardShell() {
                 onDeleteCompany={deleteCompany}
                 onUpdateUserByAdmin={updateUserByAdmin}
                 onDeleteUserByAdmin={deleteUserByAdmin}
+                onDeleteWorkEntry={deleteWorkEntry}
               />
             )}
 

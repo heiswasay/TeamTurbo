@@ -237,6 +237,10 @@ export function useTrackerData(currentUser: any, userProfile: UserProfile | null
     await deleteDoc(doc(db, 'work_entries', entryId));
   };
 
+  const deleteAttendanceRecord = async (recordId: string) => {
+    await deleteDoc(doc(db, 'attendance', recordId));
+  };
+
   // Review status & remarks (Admin inline)
   const updateEntryReview = async (entryId: string, review: ReviewStatus, remarks?: string) => {
     const updates: Partial<WorkEntry> = {
@@ -475,6 +479,7 @@ export function useTrackerData(currentUser: any, userProfile: UserProfile | null
     addWorkEntry,
     updateWorkEntry,
     deleteWorkEntry,
+    deleteAttendanceRecord,
     updateEntryReview,
     startClock,
     stopClock,

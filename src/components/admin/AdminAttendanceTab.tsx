@@ -36,19 +36,22 @@ import {
   Filter,
   Check,
   Timer,
-  Info
+  Info,
+  Trash2
 } from 'lucide-react';
 
 interface AdminAttendanceTabProps {
   attendanceRecords: AttendanceRecord[];
   teamMembers: UserProfile[];
   onUpdateUser?: (uid: string, updates: Partial<UserProfile>) => Promise<void>;
+  onDeleteAttendance?: (recordId: string) => Promise<void>;
 }
 
 export const AdminAttendanceTab: React.FC<AdminAttendanceTabProps> = ({
   attendanceRecords = [],
   teamMembers = [],
   onUpdateUser,
+  onDeleteAttendance,
 }) => {
   const todayStr = getTodayDateString();
   const todayDateObj = new Date();
@@ -80,6 +83,20 @@ export const AdminAttendanceTab: React.FC<AdminAttendanceTabProps> = ({
         // All members have 9h expected hours per working day (Mon-Sat, with alternate Sat calculated dynamically)
         expectedHoursMap: { 1: 9, 2: 9, 3: 9, 4: 9, 5: 9, 6: 9, 0: 0 },
       });
+    }
+  };
+
+  // Handle Admin Deleting Attendance Record
+  const handleDeleteRecord = async (recordId: string, memberName: string, date: string) => {
+    if (!onDeleteAttendance) return;
+    if (!window.confirm(`Are you sure you want to permanently delete the attendance record for ${memberName} on ${date}?`)) {
+      return;
+    }
+    try {
+      await onDeleteAttendance(recordId);
+    } catch (err) {
+      console.error('Failed to delete attendance record:', err);
+      alert('Failed to delete attendance record. Please try again.');
     }
   };
 
@@ -627,16 +644,29 @@ export const AdminAttendanceTab: React.FC<AdminAttendanceTabProps> = ({
                         )}
                       </td>
 
-                      {/* Quick Shift Edit Action */}
+                      {/* Quick Shift Edit & Delete Log Actions */}
                       <td className="py-4 px-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setShiftEditMember(member)}
-                          className="px-2.5 py-1.5 bg-[#1F2636] hover:bg-slate-700 text-slate-200 text-[11px] font-semibold rounded-xl transition-all border border-slate-700 inline-flex items-center gap-1 hover:border-indigo-500"
-                        >
-                          <Edit3 className="w-3 h-3 text-indigo-400" />
-                          Change Shift
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          {record?.id && onDeleteAttendance && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteRecord(record.id, member.name, selectedDate)}
+                              title="Delete this attendance record (Admin only)"
+                              className="p-1.5 bg-[#1F2636] hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 text-[11px] font-semibold rounded-xl transition-all border border-slate-700 hover:border-rose-500/40 inline-flex items-center gap-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Delete Log</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setShiftEditMember(member)}
+                            className="px-2.5 py-1.5 bg-[#1F2636] hover:bg-slate-700 text-slate-200 text-[11px] font-semibold rounded-xl transition-all border border-slate-700 inline-flex items-center gap-1 hover:border-indigo-500"
+                          >
+                            <Edit3 className="w-3 h-3 text-indigo-400" />
+                            <span>Change Shift</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -918,6 +948,7 @@ export const AdminAttendanceTab: React.FC<AdminAttendanceTabProps> = ({
                     <th className="py-3 px-3">Worked</th>
                     <th className="py-3 px-3">Expected</th>
                     <th className="py-3 px-3">Missing Hours</th>
+                    {onDeleteAttendance && <th className="py-3 px-3 text-right">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/80">
@@ -1077,6 +1108,24 @@ export const AdminAttendanceTab: React.FC<AdminAttendanceTabProps> = ({
                           <td className="py-2.5 px-3">
                             {missingHoursDisplay}
                           </td>
+
+                          {/* Actions */}
+                          {onDeleteAttendance && (
+                            <td className="py-2.5 px-3 text-right">
+                              {record?.id ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteRecord(record.id, member.name, dateStr)}
+                                  title={`Delete attendance log for ${member.name} on ${dateStr}`}
+                                  className="p-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              ) : (
+                                <span className="text-slate-600 text-[10px]">—</span>
+                              )}
+                            </td>
+                          )}
                         </tr>
                       );
                     });

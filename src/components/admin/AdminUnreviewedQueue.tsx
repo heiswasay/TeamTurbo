@@ -7,12 +7,14 @@ import { Clock, CheckCircle2, AlertCircle, ShieldAlert, Sparkles } from 'lucide-
 interface AdminUnreviewedQueueProps {
   entries: WorkEntry[];
   onUpdateReview: (entryId: string, review: ReviewStatus, remarks?: string) => Promise<void>;
+  onDeleteEntry?: (entryId: string) => Promise<void>;
   adminName: string;
 }
 
 export const AdminUnreviewedQueue: React.FC<AdminUnreviewedQueueProps> = ({
   entries = [],
   onUpdateReview,
+  onDeleteEntry,
   adminName,
 }) => {
   // Pending entries sorted oldest first
@@ -77,6 +79,7 @@ export const AdminUnreviewedQueue: React.FC<AdminUnreviewedQueueProps> = ({
               <AdminEntryReviewCard
                 entry={entry}
                 onUpdateReview={onUpdateReview}
+                onDeleteEntry={onDeleteEntry}
                 adminName={adminName}
               />
             </div>

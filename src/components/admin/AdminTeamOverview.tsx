@@ -24,7 +24,9 @@ import {
   Archive,
   RotateCcw,
   Sparkles,
-  ChevronDown
+  ChevronDown,
+  KeyRound,
+  Lock
 } from 'lucide-react';
 
 interface AdminTeamOverviewProps {
@@ -39,6 +41,7 @@ interface AdminTeamOverviewProps {
   onDeleteCompany?: (id: string) => Promise<void>;
   onUpdateUserByAdmin?: (uid: string, updates: Partial<UserProfile>) => Promise<void>;
   onDeleteUserByAdmin?: (uid: string) => Promise<void>;
+  onDeleteWorkEntry?: (entryId: string) => Promise<void>;
 }
 
 export const AdminTeamOverview: React.FC<AdminTeamOverviewProps> = ({
@@ -53,9 +56,10 @@ export const AdminTeamOverview: React.FC<AdminTeamOverviewProps> = ({
   onDeleteCompany,
   onUpdateUserByAdmin,
   onDeleteUserByAdmin,
+  onDeleteWorkEntry,
 }) => {
   const todayStr = getTodayDateString();
-  const { createTeamMember, sendPasswordReset } = useAuth();
+  const { createTeamMember, sendPasswordReset, adminChangeUserPassword } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [drilldownMember, setDrilldownMember] = useState<UserProfile | null>(null);
@@ -75,6 +79,40 @@ export const AdminTeamOverview: React.FC<AdminTeamOverviewProps> = ({
 
   // Edit user modal state
   const [editingMember, setEditingMember] = useState<UserProfile | null>(null);
+
+  // Password change modal state
+  const [passwordChangeTarget, setPasswordChangeTarget] = useState<UserProfile | null>(null);
+  const [adminNewPass, setAdminNewPass] = useState('');
+  const [adminRequireChange, setAdminRequireChange] = useState(false);
+  const [adminPassLoading, setAdminPassLoading] = useState(false);
+  const [adminPassError, setAdminPassError] = useState('');
+  const [adminPassSuccess, setAdminPassSuccess] = useState('');
+
+  const handleAdminPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordChangeTarget) return;
+    setAdminPassError('');
+    setAdminPassSuccess('');
+    if (adminNewPass.trim().length < 6) {
+      setAdminPassError('Password must be at least 6 characters long.');
+      return;
+    }
+    setAdminPassLoading(true);
+    try {
+      await adminChangeUserPassword(passwordChangeTarget.uid, adminNewPass.trim(), adminRequireChange);
+      setAdminPassSuccess(`Password successfully updated for ${passwordChangeTarget.name}!`);
+      setTimeout(() => {
+        setPasswordChangeTarget(null);
+        setAdminNewPass('');
+        setAdminPassSuccess('');
+      }, 2000);
+    } catch (err: any) {
+      console.error('Failed to change password:', err);
+      setAdminPassError(err?.message || 'Failed to update password.');
+    } finally {
+      setAdminPassLoading(false);
+    }
+  };
 
   // Delete user confirmation
   const [deleteConfirmUser, setDeleteConfirmUser] = useState<UserProfile | null>(null);
@@ -560,6 +598,20 @@ export const AdminTeamOverview: React.FC<AdminTeamOverviewProps> = ({
                         </button>
                         <button
                           type="button"
+                          onClick={() => {
+                            setPasswordChangeTarget(m);
+                            setAdminNewPass('');
+                            setAdminRequireChange(false);
+                            setAdminPassError('');
+                            setAdminPassSuccess('');
+                          }}
+                          className="px-2.5 py-1 bg-[#1F2636] hover:bg-slate-700 text-indigo-300 hover:text-white text-[11px] font-semibold rounded-lg transition-colors border border-slate-700/60 inline-flex items-center gap-1"
+                        >
+                          <KeyRound className="w-3 h-3 text-indigo-400" />
+                          Set Pass
+                        </button>
+                        <button
+                          type="button"
                           onClick={async () => {
                             await sendPasswordReset(m.email);
                             setUserMsg({ type: 'success', text: `Password reset email sent to ${m.email}` });
@@ -567,7 +619,7 @@ export const AdminTeamOverview: React.FC<AdminTeamOverviewProps> = ({
                           }}
                           className="px-2.5 py-1 bg-[#1F2636] hover:bg-slate-700 text-slate-300 text-[11px] rounded-lg transition-colors border border-slate-700/60"
                         >
-                          Reset Pass
+                          Reset Link
                         </button>
                         <button
                           type="button"
@@ -727,11 +779,27 @@ export const AdminTeamOverview: React.FC<AdminTeamOverviewProps> = ({
                           <span className="text-slate-500">•</span>
                           <span className="text-slate-400 font-mono">{entry.timeSpent}</span>
                         </div>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                          entry.review === 'ok' ? 'bg-emerald-500/20 text-emerald-300' : entry.review === 'needs_rework' ? 'bg-rose-500/20 text-rose-300' : 'bg-slate-800 text-slate-400'
-                        }`}>
-                          {entry.review === 'ok' ? 'Review: OK' : entry.review === 'needs_rework' ? 'Needs Rework' : 'Pending Review'}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            entry.review === 'ok' ? 'bg-emerald-500/20 text-emerald-300' : entry.review === 'needs_rework' ? 'bg-rose-500/20 text-rose-300' : 'bg-slate-800 text-slate-400'
+                          }`}>
+                            {entry.review === 'ok' ? 'Review: OK' : entry.review === 'needs_rework' ? 'Needs Rework' : 'Pending Review'}
+                          </span>
+                          {onDeleteWorkEntry && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (window.confirm(`Are you sure you want to permanently delete this work entry (${entry.company} - ${formatDateLabel(entry.date)})?`)) {
+                                  await onDeleteWorkEntry(entry.id);
+                                }
+                              }}
+                              title="Permanently delete work log (Admin only)"
+                              className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <p className="text-xs text-slate-300 leading-relaxed bg-[#161B27] p-2.5 rounded-xl border border-slate-700/60">
                         {entry.taskText}
@@ -1070,6 +1138,92 @@ export const AdminTeamOverview: React.FC<AdminTeamOverviewProps> = ({
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs"
                 >
                   {companyCreating ? 'Adding...' : 'Add Company'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Change Password Modal */}
+      {passwordChangeTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0B0F1A]/80 backdrop-blur-sm">
+          <div className="bg-[#161B27] border border-slate-700 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  <KeyRound className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Set User Password</h3>
+                  <p className="text-xs text-slate-400">Change password for {passwordChangeTarget.name}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPasswordChangeTarget(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {adminPassError && (
+              <div className="p-3 bg-rose-950/60 border border-rose-800 text-rose-300 text-xs rounded-xl flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{adminPassError}</span>
+              </div>
+            )}
+
+            {adminPassSuccess && (
+              <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs rounded-xl flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span>{adminPassSuccess}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleAdminPasswordSubmit} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  New Password for {passwordChangeTarget.name}
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={adminNewPass}
+                  onChange={(e) => setAdminNewPass(e.target.value)}
+                  placeholder="Enter new password (min. 6 characters)..."
+                  className="w-full bg-[#1F2636] border border-slate-700/80 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="requireChangeChk"
+                  checked={adminRequireChange}
+                  onChange={(e) => setAdminRequireChange(e.target.checked)}
+                  className="w-4 h-4 rounded bg-[#1F2636] border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                />
+                <label htmlFor="requireChangeChk" className="text-xs text-slate-300 cursor-pointer">
+                  Require user to change password on next login
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setPasswordChangeTarget(null)}
+                  className="px-4 py-2 bg-[#1F2636] hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={adminPassLoading || adminNewPass.trim().length < 6}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5"
+                >
+                  {adminPassLoading ? 'Saving...' : 'Update Password'}
                 </button>
               </div>
             </form>

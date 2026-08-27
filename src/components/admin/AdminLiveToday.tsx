@@ -27,7 +27,8 @@ import {
   StopCircle,
   AlertTriangle,
   ShieldAlert,
-  UserX
+  UserX,
+  Trash2
 } from 'lucide-react';
 
 interface AdminLiveTodayProps {
@@ -35,6 +36,7 @@ interface AdminLiveTodayProps {
   teamMembers: UserProfile[];
   attendanceRecords?: AttendanceRecord[];
   onUpdateReview: (entryId: string, review: ReviewStatus, remarks?: string) => Promise<void>;
+  onDeleteEntry?: (entryId: string) => Promise<void>;
   adminName: string;
 }
 
@@ -157,6 +159,7 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
   teamMembers = [],
   attendanceRecords = [],
   onUpdateReview,
+  onDeleteEntry,
   adminName,
 }) => {
   const todayStr = getTodayDateString();
@@ -418,6 +421,7 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
                       key={entry.id}
                       entry={entry}
                       onUpdateReview={onUpdateReview}
+                      onDeleteEntry={onDeleteEntry}
                       adminName={adminName}
                     />
                   ))
@@ -436,18 +440,36 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
 interface AdminEntryReviewCardProps {
   entry: WorkEntry;
   onUpdateReview: (entryId: string, review: ReviewStatus, remarks?: string) => Promise<void>;
+  onDeleteEntry?: (entryId: string) => Promise<void>;
   adminName: string;
 }
 
 export const AdminEntryReviewCard: React.FC<AdminEntryReviewCardProps> = ({
   entry,
   onUpdateReview,
+  onDeleteEntry,
   adminName,
 }) => {
   const [review, setReview] = useState<ReviewStatus>(entry.review);
   const [remarks, setRemarks] = useState(entry.remarks || '');
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!onDeleteEntry) return;
+    const confirmMsg = `Are you sure you want to permanently delete this work entry (${entry.company} - ${entry.timeSpent})?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setIsDeleting(true);
+    try {
+      await onDeleteEntry(entry.id);
+    } catch (err) {
+      console.error('Failed to delete work entry:', err);
+      alert('Failed to delete entry. Please try again.');
+      setIsDeleting(false);
+    }
+  };
 
   const handleReviewChange = async (newReview: ReviewStatus) => {
     setReview(newReview);
@@ -479,7 +501,7 @@ export const AdminEntryReviewCard: React.FC<AdminEntryReviewCardProps> = ({
   };
 
   return (
-    <div className="bg-[#1F2636] border border-slate-700/80 rounded-2xl p-4 space-y-3 transition-all hover:border-slate-600">
+    <div className="bg-[#1F2636] border border-slate-700/80 rounded-2xl p-4 space-y-3 transition-all hover:border-slate-600 relative">
       
       {/* Top Details */}
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -500,10 +522,23 @@ export const AdminEntryReviewCard: React.FC<AdminEntryReviewCardProps> = ({
           </span>
         </div>
 
-        {/* Status indicator */}
+        {/* Status indicator & Admin Delete button */}
         <div className="flex items-center gap-2">
           {isSaving && <span className="text-[11px] text-slate-400 animate-pulse font-medium">Saving...</span>}
           {savedSuccess && <span className="text-[11px] text-emerald-400 font-bold flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Saved</span>}
+          
+          {onDeleteEntry && (
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={handleDelete}
+              title="Delete work log entry (Admin only)"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors border border-transparent hover:border-rose-500/30 flex items-center gap-1 text-[11px]"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Delete Log</span>
+            </button>
+          )}
         </div>
       </div>
 

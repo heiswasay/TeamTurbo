@@ -397,6 +397,21 @@ export const AdminTaskAssignment: React.FC<AdminTaskAssignmentProps> = ({
                                 Re-open
                               </button>
                             )}
+
+                            {onDeleteTask && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm(`Are you sure you want to permanently delete task "${task.title}"?`)) {
+                                    onDeleteTask(task.id);
+                                  }
+                                }}
+                                title="Delete task"
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-700 hover:border-rose-500/30 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         </div>
 

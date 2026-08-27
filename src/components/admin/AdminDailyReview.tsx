@@ -18,6 +18,7 @@ interface AdminDailyReviewProps {
   entries: WorkEntry[];
   teamMembers: UserProfile[];
   onUpdateReview: (entryId: string, review: ReviewStatus, remarks?: string) => Promise<void>;
+  onDeleteEntry?: (entryId: string) => Promise<void>;
   adminName: string;
 }
 
@@ -25,6 +26,7 @@ export const AdminDailyReview: React.FC<AdminDailyReviewProps> = ({
   entries = [],
   teamMembers = [],
   onUpdateReview,
+  onDeleteEntry,
   adminName,
 }) => {
   const todayStr = getTodayDateString();
@@ -175,6 +177,7 @@ export const AdminDailyReview: React.FC<AdminDailyReviewProps> = ({
                         key={entry.id}
                         entry={entry}
                         onUpdateReview={onUpdateReview}
+                        onDeleteEntry={onDeleteEntry}
                         adminName={adminName}
                       />
                     ))
