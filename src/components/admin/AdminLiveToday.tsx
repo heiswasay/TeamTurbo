@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { WorkEntry, UserProfile, TaskStatus, ReviewStatus } from '../../types';
 import { formatDateLabel, getTodayDateString } from '../../lib/dateUtils';
+import { AttendanceWidget } from '../member/AttendanceWidget';
 import { 
   Activity, 
   Clock, 
@@ -55,13 +56,20 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
   return (
     <div className="space-y-6">
       
-      {/* Top Banner with Real-time indicator */}
-      <div className="bg-[#161B27] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+      {/* Top Section: Admin Shift Clock & Live Team Banner */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        
+        {/* Admin Square Clock Card */}
+        <div className="lg:col-span-4 flex flex-col">
+          <AttendanceWidget className="h-full" />
+        </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
+        {/* Live Team Stream Overview Card */}
+        <div className="lg:col-span-8 bg-[#161B27] border border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xl relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="relative z-10 space-y-4">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-black uppercase tracking-wider">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                 Live Firestore Stream
@@ -70,30 +78,41 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
                 {todayStr}
               </span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-              Today's Live Team Activity
-            </h2>
-            <p className="text-xs text-slate-400 mt-1">
-              Live updates as team members log accomplishments in real-time
-            </p>
+
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                Today's Live Team Activity
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Live real-time feed as team members log daily accomplishments and update shift statuses
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-4 bg-[#1F2636] p-4 rounded-2xl border border-slate-700/80 shrink-0">
-            <div>
-              <span className="text-2xl font-black text-white">
-                {todayEntries.length}
-              </span>
-              <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Logs</p>
+          <div className="mt-5 pt-4 border-t border-slate-800/80 flex items-center justify-between gap-4 relative z-10 flex-wrap">
+            <div className="flex items-center gap-4 bg-[#1F2636] px-4 py-3 rounded-2xl border border-slate-700/80">
+              <div>
+                <span className="text-xl font-black text-white">
+                  {todayEntries.length}
+                </span>
+                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Logs</p>
+              </div>
+              <div className="h-7 w-px bg-slate-700" />
+              <div>
+                <span className="text-xl font-black text-emerald-400">
+                  {activeMembersCount}/{teamMembers.filter(m => m.active !== false).length}
+                </span>
+                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Active Members</p>
+              </div>
             </div>
-            <div className="h-8 w-px bg-slate-700" />
-            <div>
-              <span className="text-2xl font-black text-emerald-400">
-                {activeMembersCount}/{teamMembers.filter(m => m.active !== false).length}
-              </span>
-              <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Active Members</p>
+
+            <div className="text-right hidden sm:block">
+              <p className="text-[11px] text-slate-400">Supervising Lead: <strong className="text-indigo-400">{adminName}</strong></p>
+              <p className="text-[10px] text-slate-500">Auto-synced via Firebase Cloud Firestore</p>
             </div>
           </div>
         </div>
+
       </div>
 
       {/* Grid of Team Members with Today's Entries */}

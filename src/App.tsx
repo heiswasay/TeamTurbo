@@ -163,18 +163,65 @@ function DashboardShell() {
                   onUpdateEntry={updateWorkEntry}
                 />
 
-                {/* Shift Clock & Attendance */}
-                <AttendanceWidget
-                  record={todayAttendance}
-                  userProfile={userProfile}
-                  onStartClock={startClock}
-                  onStopClock={stopClock}
-                />
+                {/* Top Row: Square Clock Widget & Daily Shift Summary */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
+                  <div className="md:col-span-5 lg:col-span-4 flex flex-col">
+                    <AttendanceWidget
+                      todayEntriesCount={myEntries.filter((e) => e.date === todayStr).length}
+                      className="h-full"
+                    />
+                  </div>
+
+                  <div className="md:col-span-7 lg:col-span-8 bg-[#161B27] border border-slate-800 rounded-3xl p-6 shadow-xl flex flex-col justify-between relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+
+                    <div className="relative z-10 space-y-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">
+                          Daily Shift Overview
+                        </span>
+                        <span className="text-xs text-slate-500 font-mono">
+                          {todayStr}
+                        </span>
+                      </div>
+
+                      <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                        Hello, {userProfile.name.split(' ')[0]} 👋
+                      </h2>
+                      <p className="text-xs text-slate-400">
+                        Track your tasks as you work through your shift. Remember to clock in when starting and log all finished assignments.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-800/80 relative z-10">
+                      <div className="bg-[#1F2636] p-3 rounded-2xl border border-slate-700/60 text-center">
+                        <span className="text-xl font-black text-white">
+                          {myEntries.filter((e) => e.date === todayStr).length}
+                        </span>
+                        <p className="text-[10px] uppercase font-bold text-slate-400 mt-0.5">Logged</p>
+                      </div>
+                      <div className="bg-[#1F2636] p-3 rounded-2xl border border-slate-700/60 text-center">
+                        <span className="text-xl font-black text-emerald-400">
+                          {myEntries.filter((e) => e.date === todayStr && e.status === 'completed').length}
+                        </span>
+                        <p className="text-[10px] uppercase font-bold text-slate-400 mt-0.5">Completed</p>
+                      </div>
+                      <div className="bg-[#1F2636] p-3 rounded-2xl border border-slate-700/60 text-center">
+                        <span className="text-xl font-black text-amber-400">
+                          {myTasks.filter((t) => t.status !== 'done').length}
+                        </span>
+                        <p className="text-[10px] uppercase font-bold text-slate-400 mt-0.5">Assigned</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Today's Work Log Input & List */}
                 <TodayWorkSection
                   entries={myEntries}
                   companies={companies}
+                  currentUserId={userProfile.uid}
+                  currentUserName={userProfile.name}
                   onAddEntry={(entry) =>
                     addWorkEntry({
                       ...entry,

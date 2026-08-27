@@ -124,6 +124,20 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </button>
 
+          {/* Theme Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+            className="p-2.5 rounded-xl bg-[#161B27] hover:bg-[#1F2636] text-slate-400 hover:text-indigo-400 border border-slate-800 transition-colors"
+          >
+            {theme === 'dark' ? (
+              <Sun className="w-4 h-4 text-amber-400" />
+            ) : (
+              <Moon className="w-4 h-4 text-indigo-600" />
+            )}
+          </button>
+
           {/* Sign Out Button */}
           <button
             type="button"
