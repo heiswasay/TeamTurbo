@@ -27,7 +27,8 @@ import { AdminMonthlyAnalytics } from './components/admin/AdminMonthlyAnalytics'
 // Shared Settings
 import { SettingsView } from './components/settings/SettingsView';
 
-import { Clock, ShieldCheck, Loader2 } from 'lucide-react';
+import { Clock, ShieldCheck, Loader2, ListTodo } from 'lucide-react';
+import { TaskPriority } from './types';
 
 function DashboardShell() {
   const { currentUser, userProfile, loading: authLoading } = useAuth();
@@ -54,12 +55,17 @@ function DashboardShell() {
     acknowledgeHandover,
     addCompany,
     toggleArchiveCompany,
+    deleteCompany,
     updateUserByAdmin,
+    deleteUserByAdmin,
   } = useTrackerData(currentUser, userProfile);
 
   // Tab State
   const [memberTab, setMemberTab] = useState<MemberNavTab>('daily');
   const [adminTab, setAdminTab] = useState<AdminNavTab>('live');
+
+  // Pre-filled work task state if member clicks "Log in Daily Work" from tasks widget
+  const [prefilledTaskText, setPrefilledTaskText] = useState<string>('');
 
   // Today Attendance for logged in user
   const todayAttendance = useMemo(() => {
@@ -147,8 +153,8 @@ function DashboardShell() {
         }}
       />
 
-      {/* Main Workspace Body */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* Main Workspace Body with Small Left and Right Margins */}
+      <main className="flex-1 max-w-[1600px] w-full mx-auto px-2.5 sm:px-4 lg:px-6 py-6">
         
         {/* ========================================================================= */}
         {/* MEMBER VIEWS */}
@@ -216,22 +222,42 @@ function DashboardShell() {
                   </div>
                 </div>
 
-                {/* Today's Work Log Input & List */}
-                <TodayWorkSection
-                  entries={myEntries}
-                  companies={companies}
-                  currentUserId={userProfile.uid}
-                  currentUserName={userProfile.name}
-                  onAddEntry={(entry) =>
-                    addWorkEntry({
-                      ...entry,
-                      userId: userProfile.uid,
-                      userName: userProfile.name,
-                    })
-                  }
-                  onUpdateEntry={updateWorkEntry}
-                  onDeleteEntry={deleteWorkEntry}
+                {/* Task Section in Front of Member's Dashboard */}
+                <AssignedTasksList
+                  tasks={myTasks}
+                  onUpdateStatus={updateTaskStatus}
+                  onPrefillLog={(title) => {
+                    setPrefilledTaskText(title);
+                    // Scroll smoothly to the work entry form
+                    const formEl = document.getElementById('work-entry-form-root');
+                    if (formEl) {
+                      formEl.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }}
+                  isDashboardWidget={true}
+                  titleOverride="My Assigned Tasks & Action Items"
                 />
+
+                {/* Today's Work Log Input & List */}
+                <div id="work-entry-form-root">
+                  <TodayWorkSection
+                    entries={myEntries}
+                    companies={companies}
+                    currentUserId={userProfile.uid}
+                    currentUserName={userProfile.name}
+                    initialTaskText={prefilledTaskText}
+                    onClearPrefill={() => setPrefilledTaskText('')}
+                    onAddEntry={(entry) =>
+                      addWorkEntry({
+                        ...entry,
+                        userId: userProfile.uid,
+                        userName: userProfile.name,
+                      })
+                    }
+                    onUpdateEntry={updateWorkEntry}
+                    onDeleteEntry={deleteWorkEntry}
+                  />
+                </div>
               </>
             )}
 
@@ -239,6 +265,10 @@ function DashboardShell() {
               <AssignedTasksList
                 tasks={myTasks}
                 onUpdateStatus={updateTaskStatus}
+                onPrefillLog={(title) => {
+                  setPrefilledTaskText(title);
+                  setMemberTab('daily');
+                }}
               />
             )}
 
@@ -246,9 +276,12 @@ function DashboardShell() {
               <HandoversPanel
                 handovers={handovers}
                 teamMembers={teamMembers}
+                companies={companies}
                 currentUserId={userProfile.uid}
                 currentUserName={userProfile.name}
+                onSendHandover={createHandover}
                 onCreateHandover={createHandover}
+                onUpdateStatus={acknowledgeHandover}
                 onAcknowledge={acknowledgeHandover}
               />
             )}
@@ -266,7 +299,9 @@ function DashboardShell() {
                 companies={companies}
                 onAddCompany={addCompany}
                 onToggleArchiveCompany={toggleArchiveCompany}
+                onDeleteCompany={deleteCompany}
                 onUpdateUserByAdmin={updateUserByAdmin}
+                onDeleteUserByAdmin={deleteUserByAdmin}
               />
             )}
           </div>
@@ -331,6 +366,11 @@ function DashboardShell() {
                 handovers={handovers}
                 attendanceRecords={attendanceRecords}
                 companies={companies}
+                onAddCompany={addCompany}
+                onToggleArchiveCompany={toggleArchiveCompany}
+                onDeleteCompany={deleteCompany}
+                onUpdateUserByAdmin={updateUserByAdmin}
+                onDeleteUserByAdmin={deleteUserByAdmin}
               />
             )}
 
@@ -348,7 +388,9 @@ function DashboardShell() {
                 companies={companies}
                 onAddCompany={addCompany}
                 onToggleArchiveCompany={toggleArchiveCompany}
+                onDeleteCompany={deleteCompany}
                 onUpdateUserByAdmin={updateUserByAdmin}
+                onDeleteUserByAdmin={deleteUserByAdmin}
               />
             )}
           </div>
@@ -356,9 +398,9 @@ function DashboardShell() {
 
       </main>
 
-      {/* Workspace Footer */}
+      {/* Workspace Footer with Small Side Margins */}
       <footer className="border-t border-slate-800 bg-[#0B0F1A] py-6 text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <div className="max-w-[1600px] w-full mx-auto px-3 sm:px-5 lg:px-6 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span className="font-medium text-slate-400">Team Daily Work Tracking & Attendance System • Enterprise Edition</span>
           <span className="font-mono text-[11px] text-slate-500">PKT (UTC+5) Shift Schedule</span>
         </div>

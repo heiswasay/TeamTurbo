@@ -319,29 +319,41 @@ export function useTrackerData(currentUser: any, userProfile: UserProfile | null
       createdAt: new Date().toISOString(),
     };
     await setDoc(doc(db, 'handovers', id), newHo);
+    return id;
   };
 
   const acknowledgeHandover = async (handoverId: string) => {
     await updateDoc(doc(db, 'handovers', handoverId), {
-      status: 'acknowledged',
+      status: 'accepted',
       acknowledgedAt: new Date().toISOString(),
     });
   };
 
   // Companies
   const addCompany = async (name: string) => {
-    const id = `comp_${Date.now()}`;
-    const comp: CompanyTag = { id, name, archived: false };
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const id = `comp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const comp: CompanyTag = { id, name: trimmed, archived: false };
     await setDoc(doc(db, 'companies', id), comp);
+    return id;
   };
 
   const toggleArchiveCompany = async (id: string, archived: boolean) => {
     await updateDoc(doc(db, 'companies', id), { archived });
   };
 
-  // User updates by admin
+  const deleteCompany = async (id: string) => {
+    await deleteDoc(doc(db, 'companies', id));
+  };
+
+  // User updates & deletion by admin
   const updateUserByAdmin = async (uid: string, updates: Partial<UserProfile>) => {
     await updateDoc(doc(db, 'users', uid), updates);
+  };
+
+  const deleteUserByAdmin = async (uid: string) => {
+    await deleteDoc(doc(db, 'users', uid));
   };
 
   return {
@@ -366,6 +378,8 @@ export function useTrackerData(currentUser: any, userProfile: UserProfile | null
     acknowledgeHandover,
     addCompany,
     toggleArchiveCompany,
+    deleteCompany,
     updateUserByAdmin,
+    deleteUserByAdmin,
   };
 }

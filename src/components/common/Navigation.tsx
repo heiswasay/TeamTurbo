@@ -56,7 +56,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 
     return (
       <div className="bg-[#0B0F1A]/60 border-b border-slate-800 backdrop-blur-sm sticky top-20 z-30 overflow-x-auto scrollbar-none">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-2 py-3">
+        <div className="max-w-[1600px] w-full mx-auto px-3 sm:px-5 lg:px-6 flex items-center gap-2 py-3">
           {adminTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = currentTab === tab.id;
@@ -115,7 +115,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 
   return (
     <div className="bg-[#0B0F1A]/60 border-b border-slate-800 backdrop-blur-sm sticky top-20 z-30 overflow-x-auto scrollbar-none">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-2 py-3">
+      <div className="max-w-[1600px] w-full mx-auto px-3 sm:px-5 lg:px-6 flex items-center gap-2 py-3">
         {memberTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = currentTab === tab.id;

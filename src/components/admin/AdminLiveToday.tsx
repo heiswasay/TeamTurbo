@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { WorkEntry, UserProfile, TaskStatus, ReviewStatus } from '../../types';
-import { formatDateLabel, getTodayDateString } from '../../lib/dateUtils';
+import React, { useState, useEffect, useMemo } from 'react';
+import { WorkEntry, UserProfile, ReviewStatus, AttendanceRecord } from '../../types';
+import { formatDateLabel, getTodayDateString, getDayOfWeek } from '../../lib/dateUtils';
 import { AttendanceWidget } from '../member/AttendanceWidget';
 import { 
   Activity, 
@@ -13,19 +13,138 @@ import {
   MessageSquare, 
   ShieldCheck, 
   Sparkles,
-  Send
+  Send,
+  Timer,
+  PlayCircle,
+  StopCircle
 } from 'lucide-react';
 
 interface AdminLiveTodayProps {
   entries: WorkEntry[];
   teamMembers: UserProfile[];
+  attendanceRecords?: AttendanceRecord[];
   onUpdateReview: (entryId: string, review: ReviewStatus, remarks?: string) => Promise<void>;
   adminName: string;
 }
 
+// Format seconds into HH:MM:SS
+function formatDurationClock(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const hrs = Math.floor(s / 3600);
+  const mins = Math.floor((s % 3600) / 60);
+  const secs = s % 60;
+  return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Format minutes into Xh Ym
+function formatHoursMinutes(totalMinutes: number): string {
+  const m = Math.max(0, Math.floor(totalMinutes));
+  const hrs = Math.floor(m / 60);
+  const mins = m % 60;
+  if (hrs === 0) return `${mins}m`;
+  return `${hrs}h ${mins}m`;
+}
+
+// Small Live Clock Pill for a member
+const MemberLiveClockBadge: React.FC<{
+  member: UserProfile;
+  attendance?: AttendanceRecord | null;
+}> = ({ member, attendance }) => {
+  const [now, setNow] = useState<number>(Date.now());
+
+  const isActive = attendance?.status === 'active';
+
+  // Live timer tick every 1 second if active
+  useEffect(() => {
+    if (!isActive) return;
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isActive]);
+
+  const stats = useMemo(() => {
+    if (!attendance || !attendance.sessions || attendance.sessions.length === 0) {
+      return {
+        status: 'none' as const,
+        totalSeconds: 0,
+        display: 'Not Clocked In',
+      };
+    }
+
+    let completedSeconds = 0;
+    let activeSessionStart: number | null = null;
+
+    for (const sess of attendance.sessions) {
+      if (sess.loginAt && sess.logoffAt) {
+        const dur = (new Date(sess.logoffAt).getTime() - new Date(sess.loginAt).getTime()) / 1000;
+        completedSeconds += Math.max(0, dur);
+      } else if (sess.loginAt && !sess.logoffAt) {
+        activeSessionStart = new Date(sess.loginAt).getTime();
+      }
+    }
+
+    if (attendance.status === 'active' && activeSessionStart) {
+      const activeSecs = Math.max(0, (now - activeSessionStart) / 1000);
+      const totalSecs = completedSeconds + activeSecs;
+      return {
+        status: 'active' as const,
+        totalSeconds: totalSecs,
+        display: formatDurationClock(totalSecs),
+      };
+    }
+
+    const totalSecs = completedSeconds > 0 ? completedSeconds : (attendance.totalMinutes || 0) * 60;
+    return {
+      status: 'closed' as const,
+      totalSeconds: totalSecs,
+      display: formatHoursMinutes(totalSecs / 60),
+    };
+  }, [attendance, now]);
+
+  const targetHours = member.expectedHoursMap?.[getDayOfWeek(getTodayDateString())] ?? 8;
+  const targetSeconds = targetHours * 3600;
+  const progressPct = Math.min(100, Math.round((stats.totalSeconds / (targetSeconds || 1)) * 100));
+
+  if (stats.status === 'active') {
+    return (
+      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 shadow-sm shadow-emerald-500/10">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+        </span>
+        <div className="flex items-center gap-1.5 font-mono text-xs font-bold tracking-wider">
+          <span>{stats.display}</span>
+          <span className="text-[10px] font-sans text-emerald-300 font-semibold px-1 py-0.2 bg-emerald-500/20 rounded">
+            Live ({progressPct}%)
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  if (stats.status === 'closed') {
+    return (
+      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#1F2636] border border-slate-700/80 text-slate-300">
+        <Clock className="w-3.5 h-3.5 text-indigo-400" />
+        <span className="font-mono text-xs font-bold text-white">{stats.display}</span>
+        <span className="text-[10px] text-slate-400">spent</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#1F2636]/60 border border-slate-800 text-slate-500 text-xs">
+      <Clock className="w-3.5 h-3.5 text-slate-600" />
+      <span className="text-[11px] font-medium">Off Clock</span>
+    </div>
+  );
+};
+
 export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
   entries = [],
   teamMembers = [],
+  attendanceRecords = [],
   onUpdateReview,
   adminName,
 }) => {
@@ -33,7 +152,6 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
   const todayEntries = (entries || []).filter((e) => e.date === todayStr);
 
   // Group entries by member
-  const membersMap = new Map((teamMembers || []).map((m) => [m.uid, m]));
   const entriesByMember: { [userId: string]: WorkEntry[] } = {};
 
   for (const member of (teamMembers || [])) {
@@ -51,6 +169,21 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
 
   const activeMembersCount = Object.keys(entriesByMember).filter(
     (uid) => (entriesByMember[uid]?.length || 0) > 0
+  ).length;
+
+  // Attendance by user
+  const attendanceByUser = useMemo(() => {
+    const map = new Map<string, AttendanceRecord>();
+    for (const rec of attendanceRecords) {
+      if (rec.date === todayStr) {
+        map.set(rec.userId, rec);
+      }
+    }
+    return map;
+  }, [attendanceRecords, todayStr]);
+
+  const currentlyClockedInCount = teamMembers.filter(
+    (m) => m.active !== false && attendanceByUser.get(m.uid)?.status === 'active'
   ).length;
 
   return (
@@ -84,7 +217,7 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
                 Today's Live Team Activity
               </h2>
               <p className="text-xs text-slate-400 mt-1">
-                Live real-time feed as team members log daily accomplishments and update shift statuses
+                Live real-time feed of work accomplishments and live shift timers across all active staff
               </p>
             </div>
           </div>
@@ -100,19 +233,61 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
               <div className="h-7 w-px bg-slate-700" />
               <div>
                 <span className="text-xl font-black text-emerald-400">
+                  {currentlyClockedInCount}
+                </span>
+                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Clocked In Now</p>
+              </div>
+              <div className="h-7 w-px bg-slate-700" />
+              <div>
+                <span className="text-xl font-black text-indigo-400">
                   {activeMembersCount}/{teamMembers.filter(m => m.active !== false).length}
                 </span>
-                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Active Members</p>
+                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Logged Work</p>
               </div>
             </div>
 
             <div className="text-right hidden sm:block">
               <p className="text-[11px] text-slate-400">Supervising Lead: <strong className="text-indigo-400">{adminName}</strong></p>
-              <p className="text-[10px] text-slate-500">Auto-synced via Firebase Cloud Firestore</p>
+              <p className="text-[10px] text-slate-500">Live time clocks tick second by second</p>
             </div>
           </div>
         </div>
 
+      </div>
+
+      {/* Quick Team Shift Clocks Overview Strip */}
+      <div className="bg-[#161B27] border border-slate-800 rounded-3xl p-5 shadow-xl space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+            <Timer className="w-4 h-4 text-emerald-400" />
+            Live Member Shift Timers
+          </h3>
+          <span className="text-[11px] text-slate-400">
+            {currentlyClockedInCount} of {teamMembers.filter(m => m.active !== false).length} active now
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+          {teamMembers
+            .filter((m) => m.active !== false)
+            .map((member) => {
+              const att = attendanceByUser.get(member.uid);
+              return (
+                <div
+                  key={`quick-clock-${member.uid}`}
+                  className="bg-[#1F2636] border border-slate-700/70 p-3 rounded-2xl flex items-center justify-between gap-2 hover:border-slate-600 transition-all"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-white truncate">{member.name}</p>
+                    <p className="text-[10px] text-slate-400 truncate">{member.designation}</p>
+                  </div>
+                  <div className="shrink-0">
+                    <MemberLiveClockBadge member={member} attendance={att} />
+                  </div>
+                </div>
+              );
+            })}
+        </div>
       </div>
 
       {/* Grid of Team Members with Today's Entries */}
@@ -121,6 +296,7 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
           .filter((m) => m.active !== false)
           .map((member) => {
             const memberEntries = entriesByMember[member.uid] || [];
+            const att = attendanceByUser.get(member.uid);
 
             return (
               <div
@@ -128,9 +304,9 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
                 className="bg-[#161B27] border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4 flex flex-col justify-between"
               >
                 {/* Member Header */}
-                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-indigo-600 font-bold text-white shadow-lg shadow-indigo-600/20 flex items-center justify-center text-sm border border-indigo-400/20">
+                    <div className="w-10 h-10 rounded-2xl bg-indigo-600 font-bold text-white shadow-lg shadow-indigo-600/20 flex items-center justify-center text-sm border border-indigo-400/20 shrink-0">
                       {member.name.charAt(0)}
                     </div>
                     <div>
@@ -150,13 +326,18 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
                     </div>
                   </div>
 
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
-                    memberEntries.length > 0
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                      : 'bg-[#1F2636] text-slate-400 border-slate-700/60'
-                  }`}>
-                    {memberEntries.length} {memberEntries.length === 1 ? 'entry' : 'entries'}
-                  </span>
+                  {/* Live Clock Badge + Entry Count Pill */}
+                  <div className="flex items-center gap-2 self-start sm:self-center">
+                    <MemberLiveClockBadge member={member} attendance={att} />
+
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold border shrink-0 ${
+                      memberEntries.length > 0
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                        : 'bg-[#1F2636] text-slate-400 border-slate-700/60'
+                    }`}>
+                      {memberEntries.length} {memberEntries.length === 1 ? 'log' : 'logs'}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Member's Today Entries */}
@@ -262,7 +443,7 @@ export const AdminEntryReviewCard: React.FC<AdminEntryReviewCardProps> = ({
       </div>
 
       {/* Task text */}
-      <p className="text-xs text-slate-200 leading-relaxed bg-[#161B27] p-3.5 rounded-xl border border-slate-750">
+      <p className="text-xs text-slate-200 leading-relaxed bg-[#161B27] p-3.5 rounded-xl border border-slate-700/60">
         {entry.taskText}
       </p>
 
@@ -285,7 +466,7 @@ export const AdminEntryReviewCard: React.FC<AdminEntryReviewCardProps> = ({
           </label>
 
           {/* Quick Review Buttons */}
-          <div className="inline-flex rounded-xl p-1 bg-[#161B27] border border-slate-750 gap-1">
+          <div className="inline-flex rounded-xl p-1 bg-[#161B27] border border-slate-700/60 gap-1">
             <button
               type="button"
               onClick={() => handleReviewChange('ok')}

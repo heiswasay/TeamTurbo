@@ -33,6 +33,8 @@ interface TodayWorkSectionProps {
   onDeleteEntry?: (id: string) => Promise<void>;
   currentUserId: string;
   currentUserName: string;
+  initialTaskText?: string;
+  onClearPrefill?: () => void;
 }
 
 export const TodayWorkSection: React.FC<TodayWorkSectionProps> = ({
@@ -43,6 +45,8 @@ export const TodayWorkSection: React.FC<TodayWorkSectionProps> = ({
   onDeleteEntry,
   currentUserId,
   currentUserName,
+  initialTaskText,
+  onClearPrefill,
 }) => {
   const todayStr = getTodayDateString();
   const [isAdding, setIsAdding] = useState(false);
@@ -51,6 +55,14 @@ export const TodayWorkSection: React.FC<TodayWorkSectionProps> = ({
   const [timeSpent, setTimeSpent] = useState('1h 30m');
   const [status, setStatus] = useState<TaskStatus>('completed');
   const [submitting, setSubmitting] = useState(false);
+
+  // Sync initialTaskText if set from outside widget
+  React.useEffect(() => {
+    if (initialTaskText && initialTaskText.trim()) {
+      setTaskText(initialTaskText);
+      setIsAdding(true);
+    }
+  }, [initialTaskText]);
 
   // Available companies merge default list with managed company tags
   const activeCompanies = useMemo(() => {
@@ -79,6 +91,7 @@ export const TodayWorkSection: React.FC<TodayWorkSectionProps> = ({
       setTaskText('');
       setTimeSpent('1h 30m');
       setIsAdding(false);
+      onClearPrefill?.();
     } catch (err) {
       console.error('Failed to create entry:', err);
     } finally {
