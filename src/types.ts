@@ -23,6 +23,7 @@ export interface UserProfile {
   uid: string;
   name: string;
   email: string;
+  password?: string;
   role: UserRole;
   designation: string;
   shiftStart?: string; // e.g. "10:30"
@@ -131,49 +132,60 @@ export const DEFAULT_COMPANIES = [
   'Nutracene',
 ];
 
+export const DEFAULT_USER_CREDENTIALS: Record<string, string> = {
+  'wasay@teamturbo.com': 'wasay098',
+  'hurain@teamturbo.com': 'hurain098',
+  'faiza@teamturbo.com': 'faiza098',
+  'aazmeer@teamturbo.com': 'aazmeer098',
+};
+
 export const INITIAL_DEMO_USERS: Omit<UserProfile, 'uid'>[] = [
   {
     name: 'Abdul Wasay',
     email: 'wasay@teamturbo.com',
+    password: 'wasay098',
     role: 'admin',
     designation: 'Digital Marketing Lead',
     shiftStart: '10:30',
     shiftEnd: '19:30',
     active: true,
-    mustChangePassword: true,
+    mustChangePassword: false,
     expectedHoursMap: { 1: 9, 2: 9, 3: 9, 4: 9, 5: 9, 6: 9, 0: 0 },
   },
   {
     name: 'Hurain Nadeem',
     email: 'hurain@teamturbo.com',
+    password: 'hurain098',
     role: 'member',
     designation: 'SEO Specialist',
     shiftStart: '09:30',
     shiftEnd: '18:30',
     active: true,
-    mustChangePassword: true,
+    mustChangePassword: false,
     expectedHoursMap: { 1: 9, 2: 9, 3: 9, 4: 9, 5: 9, 6: 9, 0: 0 },
   },
   {
     name: 'Faiza',
     email: 'faiza@teamturbo.com',
+    password: 'faiza098',
     role: 'member',
     designation: 'Graphic Designer / Video Editor',
     shiftStart: '09:30',
     shiftEnd: '18:30',
     active: true,
-    mustChangePassword: true,
+    mustChangePassword: false,
     expectedHoursMap: { 1: 9, 2: 9, 3: 9, 4: 9, 5: 9, 6: 9, 0: 0 },
   },
   {
     name: 'Aazmeer',
     email: 'aazmeer@teamturbo.com',
+    password: 'aazmeer098',
     role: 'member',
     designation: 'Graphic Designer',
     shiftStart: '12:00',
     shiftEnd: '21:00',
     active: true,
-    mustChangePassword: true,
+    mustChangePassword: false,
     expectedHoursMap: { 1: 9, 2: 9, 3: 9, 4: 9, 5: 9, 6: 9, 0: 0 },
   },
 ];

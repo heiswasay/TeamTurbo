@@ -25,7 +25,9 @@ import {
   Archive,
   RotateCcw,
   Sparkles,
-  ChevronDown
+  ChevronDown,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { 
   getNotificationPermissionStatus, 
@@ -62,6 +64,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     theme, 
     setTheme, 
     changePassword, 
+    adminChangeUserPassword,
     signOut, 
     sendPasswordReset, 
     updateProfileDetails,
@@ -84,13 +87,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
 
-  // Change password state
+  // Change password state (Self)
   const [currentPass, setCurrentPass] = useState('');
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
   const [passError, setPassError] = useState('');
   const [passSuccess, setPassSuccess] = useState('');
   const [passLoading, setPassLoading] = useState(false);
+
+  // Admin Change Password Modal State
+  const [passwordChangeTarget, setPasswordChangeTarget] = useState<UserProfile | null>(null);
+  const [adminNewPass, setAdminNewPass] = useState('');
+  const [adminRequireChange, setAdminRequireChange] = useState(false);
+  const [adminPassLoading, setAdminPassLoading] = useState(false);
+  const [adminPassError, setAdminPassError] = useState('');
+  const [showAdminNewPass, setShowAdminNewPass] = useState(false);
 
   // Notification toggles
   const [notifState, setNotifState] = useState({
@@ -144,8 +155,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setPassError('');
     setPassSuccess('');
 
-    if (newPass.length < 8) {
-      setPassError('New password must be at least 8 characters long.');
+    if (newPass.length < 6) {
+      setPassError('New password must be at least 6 characters long.');
       return;
     }
     if (newPass !== confirmPass) {
@@ -455,12 +466,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
             <div>
               <label className="block text-xs font-medium text-slate-300 mb-1">
-                New Password (minimum 8 characters)
+                New Password (minimum 6 characters)
               </label>
               <input
                 type="password"
                 required
-                minLength={8}
+                minLength={6}
                 value={newPass}
                 onChange={(e) => setNewPass(e.target.value)}
                 placeholder="••••••••••••"
@@ -475,7 +486,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <input
                 type="password"
                 required
-                minLength={8}
+                minLength={6}
                 value={confirmPass}
                 onChange={(e) => setConfirmPass(e.target.value)}
                 placeholder="••••••••••••"
@@ -845,7 +856,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           </span>
                         )}
                       </td>
-                      <td className="py-3.5 px-4 text-right space-x-1.5">
+                      <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPasswordChangeTarget(m);
+                            setAdminNewPass('');
+                            setAdminRequireChange(false);
+                            setAdminPassError('');
+                          }}
+                          className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-medium rounded-lg transition-colors inline-flex items-center gap-1"
+                          title="Change user password"
+                        >
+                          <KeyRound className="w-3 h-3" />
+                          Change Pass
+                        </button>
                         <button
                           type="button"
                           onClick={() => setEditingMember(m)}
@@ -861,7 +886,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           }}
                           className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] rounded-lg transition-colors"
                         >
-                          Reset Pass
+                          Email Link
                         </button>
                         <button
                           type="button"
@@ -1054,6 +1079,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   shiftStart: editingMember.shiftStart,
                   shiftEnd: editingMember.shiftEnd,
                 });
+                setUserActionMsg({ type: 'success', text: `Updated details for ${editingMember.name}` });
                 setEditingMember(null);
               }}
               className="space-y-3"
@@ -1126,6 +1152,119 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs"
                 >
                   Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Change User Password Modal */}
+      {passwordChangeTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <KeyRound className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Change Password</h3>
+                <p className="text-xs text-slate-400">
+                  Update password for <strong className="text-white">{passwordChangeTarget.name}</strong> ({passwordChangeTarget.email})
+                </p>
+              </div>
+            </div>
+
+            {adminPassError && (
+              <div className="p-3 rounded-xl bg-red-950/70 border border-red-800 text-red-300 text-xs flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <span>{adminPassError}</span>
+              </div>
+            )}
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setAdminPassError('');
+                if (adminNewPass.length < 6) {
+                  setAdminPassError('Password must be at least 6 characters.');
+                  return;
+                }
+                setAdminPassLoading(true);
+                try {
+                  await adminChangeUserPassword(passwordChangeTarget.uid, adminNewPass, adminRequireChange);
+                  setUserActionMsg({
+                    type: 'success',
+                    text: `Password for ${passwordChangeTarget.name} updated to "${adminNewPass}"!`,
+                  });
+                  setPasswordChangeTarget(null);
+                  setAdminNewPass('');
+                } catch (err: any) {
+                  setAdminPassError(err.message || 'Failed to update password.');
+                } finally {
+                  setAdminPassLoading(false);
+                }
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  New Password (min 6 characters)
+                </label>
+                <div className="relative">
+                  <input
+                    type={showAdminNewPass ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={adminNewPass}
+                    onChange={(e) => setAdminNewPass(e.target.value)}
+                    placeholder="Enter new password"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 pr-10 font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminNewPass(!showAdminNewPass)}
+                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-200"
+                  >
+                    {showAdminNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 p-3 bg-slate-950/70 border border-slate-800 rounded-xl">
+                <input
+                  type="checkbox"
+                  id="admin-require-change-checkbox"
+                  checked={adminRequireChange}
+                  onChange={(e) => setAdminRequireChange(e.target.checked)}
+                  className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                />
+                <label htmlFor="admin-require-change-checkbox" className="text-xs text-slate-300 cursor-pointer">
+                  Require member to change password upon next sign-in
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setPasswordChangeTarget(null)}
+                  className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={adminPassLoading}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 text-slate-950 font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 shadow-md shadow-amber-500/20"
+                >
+                  {adminPassLoading ? (
+                    <div className="w-3.5 h-3.5 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <KeyRound className="w-3.5 h-3.5" />
+                      Save Password
+                    </>
+                  )}
                 </button>
               </div>
             </form>

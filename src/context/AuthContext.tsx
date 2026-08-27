@@ -26,7 +26,12 @@ import {
 import { initializeApp, getApps, deleteApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { auth, db, finalConfig } from '../lib/firebase';
-import { UserProfile, INITIAL_DEMO_USERS, UserRole } from '../types';
+import { 
+  UserProfile, 
+  INITIAL_DEMO_USERS, 
+  DEFAULT_USER_CREDENTIALS,
+  UserRole 
+} from '../types';
 
 const STORAGE_KEY_UID = 'teamtracker_active_uid';
 const STORAGE_KEY_EMAIL = 'teamtracker_active_email';
@@ -40,6 +45,7 @@ interface AuthContextType {
   signIn: (email: string, pass: string) => Promise<void>;
   signOut: () => Promise<void>;
   changePassword: (currentPass: string, newPass: string) => Promise<void>;
+  adminChangeUserPassword: (targetUid: string, newPass: string, requireMustChange?: boolean) => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
   updateProfileDetails: (details: Partial<UserProfile>) => Promise<void>;
   createTeamMember: (memberData: {
@@ -193,72 +199,105 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email: string, pass: string) => {
     const cleanEmail = email.trim().toLowerCase();
-    
+    const cleanPass = pass.trim();
+
+    if (!cleanEmail) {
+      throw new Error('Please enter your work email address.');
+    }
+    if (!cleanPass) {
+      throw new Error('Please enter your password.');
+    }
+
+    // Check if user exists in Firestore
+    let existingUserDoc: UserProfile | null = null;
+    const defaultUid = 'u_' + cleanEmail.replace(/[^a-z0-9]/g, '_');
+    let userDocRef = doc(db, 'users', defaultUid);
+
     try {
-      // 1. First attempt native Firebase Email/Password
-      await signInWithEmailAndPassword(auth, cleanEmail, pass);
+      const snap = await getDoc(userDocRef);
+      if (snap.exists()) {
+        existingUserDoc = snap.data() as UserProfile;
+      } else {
+        const q = query(collection(db, 'users'), where('email', '==', cleanEmail));
+        const qSnap = await getDocs(q);
+        if (!qSnap.empty) {
+          existingUserDoc = qSnap.docs[0].data() as UserProfile;
+          userDocRef = doc(db, 'users', existingUserDoc.uid);
+        }
+      }
+    } catch (fetchErr) {
+      console.warn('User fetch check:', fetchErr);
+    }
+
+    // Determine the expected password for this account
+    const expectedPassword = existingUserDoc?.password 
+      || DEFAULT_USER_CREDENTIALS[cleanEmail] 
+      || 'TeamTurbo123!';
+
+    // Validate password match
+    let isPasswordCorrect = (cleanPass === expectedPassword);
+
+    try {
+      // 1. First attempt native Firebase Email/Password if available
+      await signInWithEmailAndPassword(auth, cleanEmail, cleanPass);
+      isPasswordCorrect = true;
     } catch (err: any) {
-      console.warn('Standard email/pass auth returned:', err?.code || err?.message);
+      console.warn('Native email/pass returned:', err?.code || err?.message);
 
-      // If Email provider is disabled or operation not allowed, fallback gracefully
-      if (
-        err?.code === 'auth/operation-not-allowed' || 
-        err?.code === 'auth/user-not-found' ||
-        err?.code === 'auth/invalid-credential' ||
-        err?.code === 'auth/configuration-not-found' ||
-        err?.code === 'auth/admin-restricted-operation'
-      ) {
-        // Try anonymous auth as backup token
-        let activeUid = '';
-        try {
-          const anonCred = await signInAnonymously(auth);
-          activeUid = anonCred.user.uid;
-        } catch (anonErr) {
-          // If anonymous is also disabled, use deterministic UID for session
-          activeUid = 'u_' + cleanEmail.replace(/[^a-z0-9]/g, '_');
-        }
-
-        // Store session
-        localStorage.setItem(STORAGE_KEY_UID, activeUid);
-        localStorage.setItem(STORAGE_KEY_EMAIL, cleanEmail);
-
-        // Find demo user matching or create
-        const demoMatch = INITIAL_DEMO_USERS.find((u) => u.email.toLowerCase() === cleanEmail);
-        const userRef = doc(db, 'users', activeUid);
-        const userSnap = await getDoc(userRef);
-
-        let finalProfile: UserProfile;
-        if (userSnap.exists()) {
-          finalProfile = userSnap.data() as UserProfile;
-        } else {
-          finalProfile = {
-            uid: activeUid,
-            name: demoMatch?.name || cleanEmail.split('@')[0],
-            email: cleanEmail,
-            role: demoMatch?.role || (cleanEmail === 'wasay@teamturbo.com' || cleanEmail === 'wasey351@gmail.com' ? 'admin' : 'member'),
-            designation: demoMatch?.designation || 'Team Member',
-            shiftStart: demoMatch?.shiftStart || '10:30',
-            shiftEnd: demoMatch?.shiftEnd || '18:30',
-            expectedHoursMap: demoMatch?.expectedHoursMap || { 1: 8, 2: 8, 3: 8, 4: 8, 5: 8, 6: 0, 0: 0 },
-            active: true,
-            mustChangePassword: false,
-            appearance: 'dark',
-            createdAt: serverTimestamp(),
-          };
-          await setDoc(userRef, finalProfile, { merge: true });
-        }
-
-        const simUser: any = {
-          uid: activeUid,
-          email: cleanEmail,
-          displayName: finalProfile.name,
-        };
-        setCurrentUser(simUser);
-        setUserProfile(finalProfile);
-        return;
+      // If Firebase Auth rejected because wrong password and it didn't match our stored password:
+      if (err?.code === 'auth/wrong-password' && !isPasswordCorrect) {
+        throw new Error('Incorrect password. Please verify your credentials.');
       }
 
-      throw err;
+      // Check if password matches our stored/designated password
+      if (!isPasswordCorrect) {
+        throw new Error('Incorrect password. Please verify your credentials or contact administrator.');
+      }
+
+      // If password matches and Firebase Auth is in sandbox or provider is restricted, establish verified session
+      const activeUid = existingUserDoc?.uid || defaultUid;
+
+      // Store local session
+      localStorage.setItem(STORAGE_KEY_UID, activeUid);
+      localStorage.setItem(STORAGE_KEY_EMAIL, cleanEmail);
+
+      // Find demo user matching or create
+      const demoMatch = INITIAL_DEMO_USERS.find((u) => u.email.toLowerCase() === cleanEmail);
+
+      let finalProfile: UserProfile;
+      if (existingUserDoc) {
+        finalProfile = { ...existingUserDoc, uid: activeUid };
+        // Sync password in doc if missing
+        if (!existingUserDoc.password) {
+          await updateDoc(userDocRef, { password: cleanPass, updatedAt: serverTimestamp() }).catch(() => {});
+        }
+      } else {
+        finalProfile = {
+          uid: activeUid,
+          name: demoMatch?.name || cleanEmail.split('@')[0],
+          email: cleanEmail,
+          password: cleanPass,
+          role: demoMatch?.role || (cleanEmail === 'wasay@teamturbo.com' || cleanEmail === 'wasey351@gmail.com' ? 'admin' : 'member'),
+          designation: demoMatch?.designation || 'Team Member',
+          shiftStart: demoMatch?.shiftStart || '10:30',
+          shiftEnd: demoMatch?.shiftEnd || '18:30',
+          expectedHoursMap: demoMatch?.expectedHoursMap || { 1: 9, 2: 9, 3: 9, 4: 9, 5: 9, 6: 9, 0: 0 },
+          active: true,
+          mustChangePassword: false,
+          appearance: 'dark',
+          createdAt: serverTimestamp(),
+        };
+        await setDoc(userDocRef, finalProfile, { merge: true });
+      }
+
+      const simUser: any = {
+        uid: activeUid,
+        email: cleanEmail,
+        displayName: finalProfile.name,
+      };
+      setCurrentUser(simUser);
+      setUserProfile(finalProfile);
+      return;
     }
   };
 
@@ -280,25 +319,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) {
       throw new Error('No user is currently logged in.');
     }
+    const cleanCurrent = currentPass.trim();
+    const cleanNew = newPass.trim();
+
+    if (cleanNew.length < 6) {
+      throw new Error('New password must be at least 6 characters.');
+    }
+
+    // Verify current password against stored profile
+    const userRef = doc(db, 'users', currentUser.uid);
+    let expectedCurrent = userProfile?.password;
+    if (!expectedCurrent && currentUser.email) {
+      expectedCurrent = DEFAULT_USER_CREDENTIALS[currentUser.email.toLowerCase()] || 'TeamTurbo123!';
+    }
+
+    if (expectedCurrent && cleanCurrent !== expectedCurrent) {
+      throw new Error('The current password you entered is incorrect.');
+    }
+
     if (currentUser.email && typeof (currentUser as any).getIdToken === 'function') {
       try {
-        const credential = EmailAuthProvider.credential(currentUser.email, currentPass);
+        const credential = EmailAuthProvider.credential(currentUser.email, cleanCurrent);
         await reauthenticateWithCredential(currentUser, credential);
-        await fbUpdatePassword(currentUser, newPass);
+        await fbUpdatePassword(currentUser, cleanNew);
       } catch (e: any) {
         if (e?.code !== 'auth/operation-not-allowed') {
-          throw e;
+          console.warn('Native password update note:', e?.message);
         }
       }
     }
 
-    // Update mustChangePassword in Firestore
-    if (userProfile?.mustChangePassword && currentUser.uid) {
-      await updateDoc(doc(db, 'users', currentUser.uid), {
-        mustChangePassword: false,
-        updatedAt: serverTimestamp(),
-      });
-      setUserProfile((prev) => prev ? { ...prev, mustChangePassword: false } : null);
+    // Update password & mustChangePassword in Firestore
+    await updateDoc(userRef, {
+      password: cleanNew,
+      mustChangePassword: false,
+      updatedAt: serverTimestamp(),
+    });
+    setUserProfile((prev) => prev ? { ...prev, password: cleanNew, mustChangePassword: false } : null);
+  };
+
+  // Admin can change password of any user
+  const adminChangeUserPassword = async (targetUid: string, newPass: string, requireMustChange: boolean = false) => {
+    if (!currentUser) {
+      throw new Error('Authentication required.');
+    }
+    const cleanNew = newPass.trim();
+    if (cleanNew.length < 6) {
+      throw new Error('Password must be at least 6 characters long.');
+    }
+
+    const targetRef = doc(db, 'users', targetUid);
+    await updateDoc(targetRef, {
+      password: cleanNew,
+      mustChangePassword: !!requireMustChange,
+      updatedAt: serverTimestamp(),
+    });
+
+    if (currentUser.uid === targetUid) {
+      setUserProfile((prev) => prev ? { ...prev, password: cleanNew, mustChangePassword: !!requireMustChange } : null);
     }
   };
 
@@ -335,7 +413,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     temporaryPassword?: string;
   }) => {
     const cleanEmail = memberData.email.trim().toLowerCase();
-    const tempPass = memberData.temporaryPassword || 'TempPass123!';
+    const tempPass = memberData.temporaryPassword || 'TeamTurbo123!';
     let newUid = 'u_' + cleanEmail.replace(/[^a-z0-9]/g, '_');
 
     try {
@@ -363,11 +441,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       uid: newUid,
       name: memberData.name.trim(),
       email: cleanEmail,
+      password: tempPass,
       role: memberData.role,
       designation: memberData.designation.trim(),
       shiftStart: memberData.shiftStart || '10:30',
       shiftEnd: memberData.shiftEnd || '18:30',
-      expectedHoursMap: { 1: 8, 2: 8, 3: 8, 4: 8, 5: 8, 6: 0, 0: 0 },
+      expectedHoursMap: { 1: 9, 2: 9, 3: 9, 4: 9, 5: 9, 6: 9, 0: 0 },
       active: true,
       mustChangePassword: true,
       appearance: 'dark',
@@ -389,11 +468,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             uid: demoUid,
             name: demo.name,
             email: demo.email,
+            password: demo.password,
             role: demo.role,
             designation: demo.designation,
             shiftStart: demo.shiftStart || '10:30',
             shiftEnd: demo.shiftEnd || '18:30',
-            expectedHoursMap: demo.expectedHoursMap || { 1: 8, 2: 8, 3: 8, 4: 8, 5: 8, 6: 0, 0: 0 },
+            expectedHoursMap: demo.expectedHoursMap || { 1: 9, 2: 9, 3: 9, 4: 9, 5: 9, 6: 9, 0: 0 },
             active: true,
             mustChangePassword: false,
             appearance: 'dark',
@@ -418,6 +498,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signIn,
         signOut,
         changePassword,
+        adminChangeUserPassword,
         sendPasswordReset,
         updateProfileDetails,
         createTeamMember,

@@ -66,7 +66,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-base sm:text-lg font-bold text-white tracking-tight leading-none">
-                Team Daily Tracker
+                Team Turbo
               </h1>
               {userProfile?.role === 'admin' ? (
                 <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">

@@ -7,22 +7,17 @@ import {
   Mail, 
   AlertCircle, 
   CheckCircle2, 
-  UserCheck, 
-  Sparkles,
-  ShieldCheck,
-  Clock
+  ShieldCheck
 } from 'lucide-react';
-import { INITIAL_DEMO_USERS } from '../../types';
 
 export const LoginView: React.FC = () => {
-  const { signIn, sendPasswordReset, createTeamMember } = useAuth();
+  const { signIn, sendPasswordReset } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
-  const [seedingAccount, setSeedingAccount] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +38,7 @@ export const LoginView: React.FC = () => {
     } catch (err: any) {
       console.error('Auth error:', err);
       if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-        setError('Invalid email or password. If this is a fresh database, use the Quick Setup below.');
+        setError('Invalid email or password. Please verify your credentials.');
       } else if (err.code === 'auth/wrong-password') {
         setError('Incorrect password. Please try again or use Forgot Password.');
       } else if (err.code === 'auth/too-many-requests') {
@@ -53,29 +48,6 @@ export const LoginView: React.FC = () => {
       }
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Helper for 1-click starter account provisioning & login in fresh instances
-  const handleQuickSelectAccount = async (account: typeof INITIAL_DEMO_USERS[0]) => {
-    setEmail(account.email);
-    setPassword('TeamTurbo123!');
-    setError('');
-    setSuccessMsg('');
-  };
-
-  const handleQuickInitializeAndLogin = async (account: typeof INITIAL_DEMO_USERS[0]) => {
-    setSeedingAccount(true);
-    setError('');
-    setSuccessMsg('');
-    const defaultPassword = 'TeamTurbo123!';
-    try {
-      await signIn(account.email, defaultPassword);
-    } catch (err: any) {
-      console.error("Quick account setup error:", err);
-      setError(err.message || 'Failed to sign in. Please verify your credentials.');
-    } finally {
-      setSeedingAccount(false);
     }
   };
 
@@ -103,7 +75,7 @@ export const LoginView: React.FC = () => {
             />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-            Team Daily Tracker
+            Team Turbo
           </h1>
           <p className="mt-2 text-xs text-slate-400">
             Enterprise work logs, shift attendance & real-time reviews
@@ -201,8 +173,8 @@ export const LoginView: React.FC = () => {
 
             <button
               type="submit"
-              disabled={loading || seedingAccount}
-              className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-2xl text-sm transition-colors shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2"
+              disabled={loading}
+              className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-2xl text-sm transition-colors shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 cursor-pointer"
             >
               {loading ? (
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -224,58 +196,12 @@ export const LoginView: React.FC = () => {
                   setError('');
                   setSuccessMsg('');
                 }}
-                className="w-full text-center text-xs text-slate-400 hover:text-slate-200 mt-2 transition-colors py-1"
+                className="w-full text-center text-xs text-slate-400 hover:text-slate-200 mt-2 transition-colors py-1 cursor-pointer"
               >
                 Back to Sign In
               </button>
             )}
           </form>
-
-          {/* Quick Demo Team Member Selector */}
-          <div className="mt-8 pt-6 border-t border-slate-800">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-semibold text-slate-400 tracking-wider uppercase flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                Quick Test Accounts
-              </span>
-              <span className="text-[10px] text-slate-500">1-Click Launch</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {INITIAL_DEMO_USERS.map((user) => (
-                <button
-                  key={user.email}
-                  type="button"
-                  disabled={seedingAccount || loading}
-                  onClick={() => handleQuickInitializeAndLogin(user)}
-                  className="flex items-start p-2.5 rounded-2xl bg-[#1F2636] border border-slate-700/60 hover:border-indigo-500/50 hover:bg-slate-800 transition-all text-left group"
-                >
-                  <div className="w-7 h-7 rounded-xl bg-slate-800 group-hover:bg-indigo-600/30 text-slate-300 group-hover:text-indigo-300 flex items-center justify-center text-xs font-semibold shrink-0 mr-2.5 transition-colors border border-slate-700/50">
-                    {user.name.charAt(0)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-xs font-bold text-white truncate group-hover:text-indigo-400">
-                        {user.name}
-                      </p>
-                      {user.role === 'admin' && (
-                        <span className="text-[9px] px-1.5 py-0.2 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-md font-semibold">
-                          Lead
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-slate-400 truncate">
-                      {user.designation}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            <p className="text-[10px] text-slate-500 text-center mt-3">
-              Default demo password: <code className="text-slate-300">TeamTurbo123!</code>
-            </p>
-          </div>
 
         </div>
 

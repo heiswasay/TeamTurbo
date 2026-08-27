@@ -163,20 +163,19 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
   const daySchedule = useMemo(() => getDaySchedule(todayStr), [todayStr]);
   const todayEntries = (entries || []).filter((e) => e.date === todayStr);
 
-  // Group entries by member
+  // Group entries by member (excluding admin accounts from member grids)
   const entriesByMember: { [userId: string]: WorkEntry[] } = {};
 
   for (const member of (teamMembers || [])) {
-    if (member.active !== false) {
+    if (member.active !== false && member.role !== 'admin') {
       entriesByMember[member.uid] = [];
     }
   }
 
   for (const entry of todayEntries) {
-    if (!entriesByMember[entry.userId]) {
-      entriesByMember[entry.userId] = [];
+    if (entriesByMember[entry.userId] !== undefined) {
+      entriesByMember[entry.userId].push(entry);
     }
-    entriesByMember[entry.userId].push(entry);
   }
 
   const activeMembersCount = Object.keys(entriesByMember).filter(
@@ -195,7 +194,7 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
   }, [attendanceRecords, todayStr]);
 
   const activeStaffList = useMemo(() => {
-    return teamMembers.filter((m) => m.active !== false);
+    return teamMembers.filter((m) => m.active !== false && m.role !== 'admin');
   }, [teamMembers]);
 
   const currentlyClockedInCount = activeStaffList.filter(
