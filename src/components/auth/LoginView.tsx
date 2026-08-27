@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import faviconIcon from '../../images/favicon.png';
 import { 
   LogIn, 
   KeyRound, 
@@ -84,8 +85,22 @@ export const LoginView: React.FC = () => {
         
         {/* Brand Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-600 font-bold text-xl text-white shadow-xl shadow-indigo-500/20 mb-4 border border-indigo-400/20">
-            TT
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-600 font-bold text-xl text-white shadow-xl shadow-indigo-500/20 mb-4 border border-indigo-400/20 overflow-hidden p-2">
+            <img 
+              src={faviconIcon} 
+              alt="Logo" 
+              className="w-full h-full object-contain" 
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                const parent = e.currentTarget.parentElement;
+                if (parent && !parent.querySelector('.fallback-text')) {
+                  const span = document.createElement('span');
+                  span.className = 'fallback-text text-xl font-bold text-white';
+                  span.innerText = 'TT';
+                  parent.appendChild(span);
+                }
+              }}
+            />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
             Team Daily Tracker

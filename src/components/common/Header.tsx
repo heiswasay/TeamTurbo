@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { AttendanceRecord, WorkEntry, AssignedTask, Handover } from '../../types';
 import { formatDuration, getTodayDateString } from '../../lib/dateUtils';
+import faviconIcon from '../../images/favicon.png';
 import { 
   Clock, 
   Moon, 
@@ -38,8 +39,23 @@ export const Header: React.FC<HeaderProps> = ({
         
         {/* Left: Brand Identity with TT Bento Icon */}
         <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20 shrink-0 tracking-tight">
-            TT
+          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20 shrink-0 tracking-tight overflow-hidden p-1 border border-indigo-400/20">
+            <img 
+              src={faviconIcon} 
+              alt="Logo" 
+              className="w-full h-full object-contain" 
+              onError={(e) => {
+                // If favicon image is empty or fails, display 'TT' fallback
+                e.currentTarget.style.display = 'none';
+                const parent = e.currentTarget.parentElement;
+                if (parent && !parent.querySelector('.fallback-text')) {
+                  const span = document.createElement('span');
+                  span.className = 'fallback-text text-sm font-bold text-white';
+                  span.innerText = 'TT';
+                  parent.appendChild(span);
+                }
+              }}
+            />
           </div>
           <div>
             <div className="flex items-center gap-2">
