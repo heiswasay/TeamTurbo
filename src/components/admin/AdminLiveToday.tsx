@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { WorkEntry, UserProfile, ReviewStatus, AttendanceRecord } from '../../types';
+import { WorkEntry, UserProfile, ReviewStatus, AttendanceRecord, ItemChatMessage } from '../../types';
 import { 
   formatDateLabel, 
   getTodayDateString, 
@@ -10,6 +10,7 @@ import {
   formatTime
 } from '../../lib/dateUtils';
 import { AttendanceWidget } from '../member/AttendanceWidget';
+import { ItemFeedbackChat } from '../common/ItemFeedbackChat';
 import { 
   Activity, 
   Clock, 
@@ -28,15 +29,21 @@ import {
   AlertTriangle,
   ShieldAlert,
   UserX,
-  Trash2
+  Trash2,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 interface AdminLiveTodayProps {
   entries: WorkEntry[];
   teamMembers: UserProfile[];
   attendanceRecords?: AttendanceRecord[];
+  chatMessages?: ItemChatMessage[];
+  onSendMessage?: (targetId: string, targetType: 'work_entry' | 'assigned_task', text: string) => Promise<any>;
+  onDeleteChatMessage?: (messageId: string) => Promise<any>;
   onUpdateReview: (entryId: string, review: ReviewStatus, remarks?: string) => Promise<void>;
   onDeleteEntry?: (entryId: string) => Promise<void>;
+  adminId?: string;
   adminName: string;
 }
 
@@ -158,8 +165,12 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
   entries = [],
   teamMembers = [],
   attendanceRecords = [],
+  chatMessages = [],
+  onSendMessage,
+  onDeleteChatMessage,
   onUpdateReview,
   onDeleteEntry,
+  adminId = '',
   adminName,
 }) => {
   const todayStr = getTodayDateString();
@@ -420,8 +431,12 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
                     <AdminEntryReviewCard
                       key={entry.id}
                       entry={entry}
+                      chatMessages={chatMessages}
+                      onSendMessage={onSendMessage}
+                      onDeleteChatMessage={onDeleteChatMessage}
                       onUpdateReview={onUpdateReview}
                       onDeleteEntry={onDeleteEntry}
+                      adminId={adminId}
                       adminName={adminName}
                     />
                   ))
@@ -439,15 +454,23 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
 // Inline review & remarks card
 interface AdminEntryReviewCardProps {
   entry: WorkEntry;
+  chatMessages?: ItemChatMessage[];
+  onSendMessage?: (targetId: string, targetType: 'work_entry' | 'assigned_task', text: string) => Promise<any>;
+  onDeleteChatMessage?: (messageId: string) => Promise<any>;
   onUpdateReview: (entryId: string, review: ReviewStatus, remarks?: string) => Promise<void>;
   onDeleteEntry?: (entryId: string) => Promise<void>;
+  adminId?: string;
   adminName: string;
 }
 
 export const AdminEntryReviewCard: React.FC<AdminEntryReviewCardProps> = ({
   entry,
+  chatMessages = [],
+  onSendMessage,
+  onDeleteChatMessage,
   onUpdateReview,
   onDeleteEntry,
+  adminId = '',
   adminName,
 }) => {
   const [review, setReview] = useState<ReviewStatus>(entry.review);
@@ -455,6 +478,11 @@ export const AdminEntryReviewCard: React.FC<AdminEntryReviewCardProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+
+  const entryChatMessages = chatMessages.filter(
+    (m) => m.targetId === entry.id && m.targetType === 'work_entry'
+  );
 
   const handleDelete = async () => {
     if (!onDeleteEntry) return;
@@ -610,11 +638,55 @@ export const AdminEntryReviewCard: React.FC<AdminEntryReviewCardProps> = ({
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
             onBlur={handleRemarksBlur}
-            placeholder="Add lead remarks or feedback (auto-saves on blur)..."
+            placeholder="Add lead remarks or quick feedback (auto-saves on blur)..."
             className="w-full bg-[#161B27] border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none transition-all pl-8.5 font-medium"
           />
           <MessageSquare className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
         </div>
+
+        {/* Discussion / Chat Toggle */}
+        <div className="flex items-center justify-between pt-1">
+          <button
+            type="button"
+            onClick={() => setShowChat(!showChat)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              showChat
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                : entryChatMessages.length > 0
+                ? 'bg-indigo-600/15 hover:bg-indigo-600/25 text-indigo-300 border border-indigo-500/30'
+                : 'bg-[#161B27] hover:bg-slate-700/60 text-slate-400 hover:text-slate-200 border border-slate-700/60'
+            }`}
+          >
+            <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />
+            <span>
+              {entryChatMessages.length > 0 
+                ? `Discussion & Chat (${entryChatMessages.length})` 
+                : 'Open Chat Thread'}
+            </span>
+            {showChat ? (
+              <ChevronUp className="w-3.5 h-3.5 opacity-70" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5 opacity-70" />
+            )}
+          </button>
+        </div>
+
+        {/* Expanded Discussion Chat */}
+        {showChat && onSendMessage && (
+          <ItemFeedbackChat
+            targetId={entry.id}
+            targetType="work_entry"
+            targetTitle={`${entry.userName} • ${entry.company}`}
+            targetSubtitle={entry.taskText.slice(0, 45)}
+            messages={chatMessages}
+            currentUserId={adminId}
+            currentUserName={adminName}
+            currentUserRole="admin"
+            onSendMessage={onSendMessage}
+            onDeleteMessage={onDeleteChatMessage}
+            isInline={true}
+          />
+        )}
       </div>
 
     </div>

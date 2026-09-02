@@ -45,6 +45,7 @@ function DashboardShell() {
     handovers,
     companies,
     teamMembers,
+    chatMessages,
     addWorkEntry,
     updateWorkEntry,
     deleteWorkEntry,
@@ -64,6 +65,8 @@ function DashboardShell() {
     deleteCompany,
     updateUserByAdmin,
     deleteUserByAdmin,
+    sendChatMessage,
+    deleteChatMessage,
   } = useTrackerData(currentUser, userProfile);
 
   // Tab State
@@ -82,6 +85,7 @@ function DashboardShell() {
     tasks,
     handovers,
     entries,
+    chatMessages,
   });
 
   // Pre-filled work task state if member clicks "Log in Daily Work" from tasks widget
@@ -191,8 +195,15 @@ function DashboardShell() {
               <>
                 {/* Needs Rework Action Alert */}
                 <NeedsReworkAlert
-                  entries={reworkEntries}
-                  onUpdateEntry={updateWorkEntry}
+                  reworkEntries={reworkEntries}
+                  chatMessages={chatMessages}
+                  currentUserId={userProfile.uid}
+                  currentUserName={userProfile.name}
+                  onSendMessage={sendChatMessage}
+                  onDeleteChatMessage={deleteChatMessage}
+                  onAddFollowUpNote={(entryId, note) => {
+                    return updateWorkEntry(entryId, { followUpNote: note });
+                  }}
                 />
 
                 {/* Top Row: Square Clock Widget & Daily Shift Summary */}
@@ -251,6 +262,12 @@ function DashboardShell() {
                 {/* Task Section in Front of Member's Dashboard */}
                 <AssignedTasksList
                   tasks={myTasks}
+                  chatMessages={chatMessages}
+                  currentUserId={userProfile.uid}
+                  currentUserName={userProfile.name}
+                  currentUserRole={userProfile.role}
+                  onSendMessage={sendChatMessage}
+                  onDeleteChatMessage={deleteChatMessage}
                   onUpdateStatus={updateTaskStatus}
                   onPrefillLog={(title) => {
                     setPrefilledTaskText(title);
@@ -269,6 +286,9 @@ function DashboardShell() {
                   <TodayWorkSection
                     entries={myEntries}
                     companies={companies}
+                    chatMessages={chatMessages}
+                    onSendMessage={sendChatMessage}
+                    onDeleteChatMessage={deleteChatMessage}
                     currentUserId={userProfile.uid}
                     currentUserName={userProfile.name}
                     initialTaskText={prefilledTaskText}
@@ -290,6 +310,12 @@ function DashboardShell() {
             {memberTab === 'assigned' && (
               <AssignedTasksList
                 tasks={myTasks}
+                chatMessages={chatMessages}
+                currentUserId={userProfile.uid}
+                currentUserName={userProfile.name}
+                currentUserRole={userProfile.role}
+                onSendMessage={sendChatMessage}
+                onDeleteChatMessage={deleteChatMessage}
                 onUpdateStatus={updateTaskStatus}
                 onPrefillLog={(title) => {
                   setPrefilledTaskText(title);
@@ -346,8 +372,12 @@ function DashboardShell() {
                 entries={entries}
                 attendanceRecords={attendanceRecords}
                 teamMembers={teamMembers}
+                chatMessages={chatMessages}
+                onSendMessage={sendChatMessage}
+                onDeleteChatMessage={deleteChatMessage}
                 onUpdateReview={updateEntryReview}
                 onDeleteEntry={deleteWorkEntry}
+                adminId={userProfile.uid}
                 adminName={userProfile.name}
               />
             )}
@@ -356,8 +386,12 @@ function DashboardShell() {
               <AdminDailyReview
                 entries={entries}
                 teamMembers={teamMembers}
+                chatMessages={chatMessages}
+                onSendMessage={sendChatMessage}
+                onDeleteChatMessage={deleteChatMessage}
                 onUpdateReview={updateEntryReview}
                 onDeleteEntry={deleteWorkEntry}
+                adminId={userProfile.uid}
                 adminName={userProfile.name}
               />
             )}
@@ -365,8 +399,12 @@ function DashboardShell() {
             {adminTab === 'queue' && (
               <AdminUnreviewedQueue
                 entries={entries}
+                chatMessages={chatMessages}
+                onSendMessage={sendChatMessage}
+                onDeleteChatMessage={deleteChatMessage}
                 onUpdateReview={updateEntryReview}
                 onDeleteEntry={deleteWorkEntry}
+                adminId={userProfile.uid}
                 adminName={userProfile.name}
               />
             )}
@@ -385,6 +423,9 @@ function DashboardShell() {
                 tasks={tasks}
                 teamMembers={teamMembers}
                 companies={companies}
+                chatMessages={chatMessages}
+                onSendMessage={sendChatMessage}
+                onDeleteChatMessage={deleteChatMessage}
                 adminId={userProfile.uid}
                 adminName={userProfile.name}
                 onAssignTask={assignTask}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { AssignedTask, AssignedTaskStatus, TaskPriority } from '../../types';
+import { AssignedTask, AssignedTaskStatus, TaskPriority, ItemChatMessage, UserRole } from '../../types';
 import { formatDateLabel, getTodayDateString } from '../../lib/dateUtils';
+import { ItemFeedbackChat } from '../common/ItemFeedbackChat';
 import { 
   CheckCircle2, 
   Clock, 
@@ -13,11 +14,19 @@ import {
   ListTodo,
   PlusCircle,
   ChevronRight,
-  ChevronDown
+  ChevronDown,
+  ChevronUp,
+  MessageSquare
 } from 'lucide-react';
 
 interface AssignedTasksListProps {
   tasks: AssignedTask[];
+  chatMessages?: ItemChatMessage[];
+  onSendMessage?: (targetId: string, targetType: 'work_entry' | 'assigned_task', text: string) => Promise<any>;
+  onDeleteChatMessage?: (messageId: string) => Promise<any>;
+  currentUserId?: string;
+  currentUserName?: string;
+  currentUserRole?: UserRole;
   onUpdateStatus: (taskId: string, status: AssignedTaskStatus) => Promise<void>;
   onPrefillLog?: (taskTitle: string, priority: TaskPriority) => void;
   titleOverride?: string;
@@ -26,6 +35,12 @@ interface AssignedTasksListProps {
 
 export const AssignedTasksList: React.FC<AssignedTasksListProps> = ({
   tasks = [],
+  chatMessages = [],
+  onSendMessage,
+  onDeleteChatMessage,
+  currentUserId = '',
+  currentUserName = '',
+  currentUserRole = 'member',
   onUpdateStatus,
   onPrefillLog,
   titleOverride,
@@ -34,6 +49,7 @@ export const AssignedTasksList: React.FC<AssignedTasksListProps> = ({
   const todayStr = getTodayDateString();
   const [filter, setFilter] = useState<'all' | 'open' | 'in_progress' | 'done'>('open');
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [activeChatTaskId, setActiveChatTaskId] = useState<string | null>(null);
 
   // Priority weight for sorting: high -> 3, medium -> 2, low -> 1
   const priorityWeight = (p: TaskPriority) => {
@@ -181,6 +197,9 @@ export const AssignedTasksList: React.FC<AssignedTasksListProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {sortedTasks.map((task) => {
                 const isOverdue = task.status !== 'done' && task.dueDate < todayStr;
+                const taskChatMessages = chatMessages.filter(
+                  (m) => m.targetId === task.id && m.targetType === 'assigned_task'
+                );
 
                 return (
                   <div
@@ -244,17 +263,43 @@ export const AssignedTasksList: React.FC<AssignedTasksListProps> = ({
                     </div>
 
                     {/* Action buttons */}
-                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
-                      {onPrefillLog && task.status !== 'done' && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
+                      <div className="flex items-center gap-3">
+                        {onPrefillLog && task.status !== 'done' && (
+                          <button
+                            type="button"
+                            onClick={() => onPrefillLog(task.title, task.priority)}
+                            className="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 transition-colors"
+                          >
+                            <PlusCircle className="w-3.5 h-3.5" />
+                            Log in Daily Work
+                          </button>
+                        )}
+
                         <button
                           type="button"
-                          onClick={() => onPrefillLog(task.title, task.priority)}
-                          className="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 transition-colors"
+                          onClick={() => setActiveChatTaskId(activeChatTaskId === task.id ? null : task.id)}
+                          className={`text-[11px] font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all ${
+                            activeChatTaskId === task.id
+                              ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
+                              : taskChatMessages.length > 0
+                              ? 'bg-indigo-600/15 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/25'
+                              : 'bg-[#1F2636] text-slate-400 hover:text-slate-200 border border-slate-700/60'
+                          }`}
                         >
-                          <PlusCircle className="w-3.5 h-3.5" />
-                          Log in Daily Work
+                          <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>
+                            {taskChatMessages.length > 0 
+                              ? `Feedback (${taskChatMessages.length})` 
+                              : 'Chat & Feedback'}
+                          </span>
+                          {activeChatTaskId === task.id ? (
+                            <ChevronUp className="w-3 h-3 opacity-75" />
+                          ) : (
+                            <ChevronDown className="w-3 h-3 opacity-75" />
+                          )}
                         </button>
-                      )}
+                      </div>
 
                       <div className="flex items-center gap-1.5 ml-auto">
                         {task.status !== 'done' && (
@@ -291,6 +336,23 @@ export const AssignedTasksList: React.FC<AssignedTasksListProps> = ({
                         )}
                       </div>
                     </div>
+
+                    {/* Inline Task Discussion Chat */}
+                    {activeChatTaskId === task.id && onSendMessage && (
+                      <ItemFeedbackChat
+                        targetId={task.id}
+                        targetType="assigned_task"
+                        targetTitle={task.title}
+                        targetSubtitle={`Assigned to ${task.assignedToName || 'Member'}`}
+                        messages={chatMessages}
+                        currentUserId={currentUserId}
+                        currentUserName={currentUserName}
+                        currentUserRole={currentUserRole}
+                        onSendMessage={onSendMessage}
+                        onDeleteMessage={onDeleteChatMessage}
+                        isInline={true}
+                      />
+                    )}
 
                   </div>
                 );

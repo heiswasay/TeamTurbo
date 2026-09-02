@@ -4,6 +4,7 @@ import {
   onSnapshot, 
   doc, 
   setDoc, 
+  addDoc,
   updateDoc, 
   deleteDoc, 
   query, 
@@ -24,6 +25,7 @@ import {
   ReviewStatus, 
   TaskStatus, 
   AssignedTaskStatus,
+  ItemChatMessage,
   DEFAULT_COMPANIES,
   INITIAL_DEMO_USERS
 } from '../types';
@@ -36,6 +38,7 @@ export function useTrackerData(currentUser: any, userProfile: UserProfile | null
   const [handovers, setHandovers] = useState<Handover[]>([]);
   const [companies, setCompanies] = useState<CompanyTag[]>([]);
   const [teamMembers, setTeamMembers] = useState<UserProfile[]>([]);
+  const [chatMessages, setChatMessages] = useState<ItemChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
 
   const todayStr = getTodayDateString();
@@ -132,6 +135,24 @@ export function useTrackerData(currentUser: any, userProfile: UserProfile | null
           setHandovers(list);
         }, (err) => {
           console.warn('Handovers listener error:', err);
+        })
+      );
+
+      // 7. Chat / Feedback Messages
+      const chatRef = collection(db, 'chat_messages');
+      unsubs.push(
+        onSnapshot(chatRef, (snap) => {
+          const list: ItemChatMessage[] = [];
+          snap.forEach((d) => list.push({ id: d.id, ...d.data() } as ItemChatMessage));
+          // Sort messages chronologically by createdAt
+          list.sort((a, b) => {
+            const timeA = new Date(a.createdAt || 0).getTime();
+            const timeB = new Date(b.createdAt || 0).getTime();
+            return timeA - timeB;
+          });
+          setChatMessages(list);
+        }, (err) => {
+          console.warn('Chat messages listener error:', err);
         })
       );
     } catch (err) {
@@ -467,6 +488,34 @@ export function useTrackerData(currentUser: any, userProfile: UserProfile | null
     await deleteDoc(doc(db, 'users', uid));
   };
 
+  // Real-Time Feedback / Chat actions for Work Entries and Assigned Tasks
+  const sendChatMessage = async (
+    targetId: string,
+    targetType: 'work_entry' | 'assigned_task',
+    message: string
+  ) => {
+    if (!currentUser || !userProfile) throw new Error('Not authenticated');
+    const cleanMsg = message.trim();
+    if (!cleanMsg) return;
+
+    const newMsg: Omit<ItemChatMessage, 'id'> = {
+      targetId,
+      targetType,
+      senderId: userProfile.uid,
+      senderName: userProfile.name,
+      senderRole: userProfile.role,
+      message: cleanMsg,
+      createdAt: new Date().toISOString(),
+    };
+
+    const docRef = await addDoc(collection(db, 'chat_messages'), newMsg);
+    return docRef.id;
+  };
+
+  const deleteChatMessage = async (messageId: string) => {
+    await deleteDoc(doc(db, 'chat_messages', messageId));
+  };
+
   return {
     loading,
     entries,
@@ -475,6 +524,7 @@ export function useTrackerData(currentUser: any, userProfile: UserProfile | null
     handovers,
     companies,
     teamMembers,
+    chatMessages,
     // Actions
     addWorkEntry,
     updateWorkEntry,
@@ -495,5 +545,7 @@ export function useTrackerData(currentUser: any, userProfile: UserProfile | null
     deleteCompany,
     updateUserByAdmin,
     deleteUserByAdmin,
+    sendChatMessage,
+    deleteChatMessage,
   };
 }

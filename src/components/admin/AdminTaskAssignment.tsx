@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { AssignedTask, UserProfile, TaskPriority, AssignedTaskStatus, CompanyTag, DEFAULT_COMPANIES } from '../../types';
+import { AssignedTask, UserProfile, TaskPriority, AssignedTaskStatus, CompanyTag, DEFAULT_COMPANIES, ItemChatMessage } from '../../types';
 import { formatDateLabel, getTodayDateString } from '../../lib/dateUtils';
+import { ItemFeedbackChat } from '../common/ItemFeedbackChat';
 import { 
   Plus, 
   CheckCheck, 
@@ -12,15 +13,20 @@ import {
   Trash2, 
   Clock3,
   ChevronDown,
+  ChevronUp,
   Building2,
   Sparkles,
-  ClipboardList
+  ClipboardList,
+  MessageSquare
 } from 'lucide-react';
 
 interface AdminTaskAssignmentProps {
   tasks: AssignedTask[];
   teamMembers: UserProfile[];
   companies?: CompanyTag[];
+  chatMessages?: ItemChatMessage[];
+  onSendMessage?: (targetId: string, targetType: 'work_entry' | 'assigned_task', text: string) => Promise<any>;
+  onDeleteChatMessage?: (messageId: string) => Promise<any>;
   adminId: string;
   adminName: string;
   onAssignTask: (task: Omit<AssignedTask, 'id' | 'createdAt'>) => Promise<void>;
@@ -32,6 +38,9 @@ export const AdminTaskAssignment: React.FC<AdminTaskAssignmentProps> = ({
   tasks = [],
   teamMembers = [],
   companies = [],
+  chatMessages = [],
+  onSendMessage,
+  onDeleteChatMessage,
   adminId,
   adminName,
   onAssignTask,
@@ -40,6 +49,7 @@ export const AdminTaskAssignment: React.FC<AdminTaskAssignmentProps> = ({
 }) => {
   const todayStr = getTodayDateString();
   const [isAdding, setIsAdding] = useState(false);
+  const [activeChatTaskId, setActiveChatTaskId] = useState<string | null>(null);
   const [assignedTo, setAssignedTo] = useState('');
   const [company, setCompany] = useState(companies?.[0]?.name || DEFAULT_COMPANIES[0]);
   const [title, setTitle] = useState('');
@@ -345,6 +355,9 @@ export const AdminTaskAssignment: React.FC<AdminTaskAssignmentProps> = ({
                 ) : (
                   memberTasks.map((task) => {
                     const isOverdue = task.status !== 'done' && task.dueDate < todayStr;
+                    const taskChatMessages = chatMessages.filter(
+                      (m) => m.targetId === task.id && m.targetType === 'assigned_task'
+                    );
 
                     return (
                       <div
@@ -420,10 +433,48 @@ export const AdminTaskAssignment: React.FC<AdminTaskAssignmentProps> = ({
                             <Calendar className="w-3 h-3 text-slate-500" />
                             Due: <strong className={isOverdue ? 'text-red-400' : 'text-slate-300'}>{formatDateLabel(task.dueDate)}</strong>
                           </span>
-                          <span className="capitalize font-semibold text-slate-400">
-                            Status: {task.status.replace('_', ' ')}
-                          </span>
+                          
+                          <button
+                            type="button"
+                            onClick={() => setActiveChatTaskId(activeChatTaskId === task.id ? null : task.id)}
+                            className={`flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold text-[11px] transition-all ${
+                              activeChatTaskId === task.id
+                                ? 'bg-indigo-600 text-white shadow-sm'
+                                : taskChatMessages.length > 0
+                                ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                            }`}
+                          >
+                            <MessageSquare className="w-3 h-3 text-indigo-400" />
+                            <span>
+                              {taskChatMessages.length > 0
+                                ? `Feedback (${taskChatMessages.length})`
+                                : 'Feedback'}
+                            </span>
+                            {activeChatTaskId === task.id ? (
+                              <ChevronUp className="w-3 h-3" />
+                            ) : (
+                              <ChevronDown className="w-3 h-3" />
+                            )}
+                          </button>
                         </div>
+
+                        {/* Inline Task Discussion Chat for Admin */}
+                        {activeChatTaskId === task.id && onSendMessage && (
+                          <ItemFeedbackChat
+                            targetId={task.id}
+                            targetType="assigned_task"
+                            targetTitle={task.title}
+                            targetSubtitle={`Assigned to ${member.name}`}
+                            messages={chatMessages}
+                            currentUserId={adminId}
+                            currentUserName={adminName}
+                            currentUserRole="admin"
+                            onSendMessage={onSendMessage}
+                            onDeleteMessage={onDeleteChatMessage}
+                            isInline={true}
+                          />
+                        )}
                       </div>
                     );
                   })

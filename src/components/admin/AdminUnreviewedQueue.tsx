@@ -1,20 +1,28 @@
 import React from 'react';
-import { WorkEntry, ReviewStatus } from '../../types';
+import { WorkEntry, ReviewStatus, ItemChatMessage } from '../../types';
 import { formatDateLabel } from '../../lib/dateUtils';
 import { AdminEntryReviewCard } from './AdminLiveToday';
 import { Clock, CheckCircle2, AlertCircle, ShieldAlert, Sparkles } from 'lucide-react';
 
 interface AdminUnreviewedQueueProps {
   entries: WorkEntry[];
+  chatMessages?: ItemChatMessage[];
+  onSendMessage?: (targetId: string, targetType: 'work_entry' | 'assigned_task', text: string) => Promise<any>;
+  onDeleteChatMessage?: (messageId: string) => Promise<any>;
   onUpdateReview: (entryId: string, review: ReviewStatus, remarks?: string) => Promise<void>;
   onDeleteEntry?: (entryId: string) => Promise<void>;
+  adminId?: string;
   adminName: string;
 }
 
 export const AdminUnreviewedQueue: React.FC<AdminUnreviewedQueueProps> = ({
   entries = [],
+  chatMessages = [],
+  onSendMessage,
+  onDeleteChatMessage,
   onUpdateReview,
   onDeleteEntry,
+  adminId = '',
   adminName,
 }) => {
   // Pending entries sorted oldest first
@@ -78,8 +86,12 @@ export const AdminUnreviewedQueue: React.FC<AdminUnreviewedQueueProps> = ({
 
               <AdminEntryReviewCard
                 entry={entry}
+                chatMessages={chatMessages}
+                onSendMessage={onSendMessage}
+                onDeleteChatMessage={onDeleteChatMessage}
                 onUpdateReview={onUpdateReview}
                 onDeleteEntry={onDeleteEntry}
+                adminId={adminId}
                 adminName={adminName}
               />
             </div>

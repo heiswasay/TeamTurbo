@@ -16,6 +16,7 @@ export interface NotificationPreferences {
   handover: boolean;
   rework: boolean;
   adminNewLog?: boolean;
+  chatFeedback?: boolean;
   soundEnabled?: boolean;
 }
 
@@ -119,6 +120,17 @@ export interface CompanyTag {
   name: string;
   archived?: boolean;
   createdAt?: any;
+}
+
+export interface ItemChatMessage {
+  id: string;
+  targetId: string; // WorkEntry ID or AssignedTask ID
+  targetType: 'work_entry' | 'assigned_task';
+  senderId: string;
+  senderName: string;
+  senderRole: UserRole;
+  message: string;
+  createdAt: string;
 }
 
 export const DEFAULT_COMPANIES = [

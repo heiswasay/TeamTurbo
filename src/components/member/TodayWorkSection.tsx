@@ -4,12 +4,15 @@ import {
   TaskStatus, 
   ReviewStatus, 
   DEFAULT_COMPANIES, 
-  CompanyTag 
+  CompanyTag,
+  ItemChatMessage,
+  UserRole
 } from '../../types';
 import { 
   formatDateLabel, 
   getTodayDateString 
 } from '../../lib/dateUtils';
+import { ItemFeedbackChat } from '../common/ItemFeedbackChat';
 import { 
   Plus, 
   Clock, 
@@ -22,17 +25,22 @@ import {
   MessageSquare, 
   ShieldCheck, 
   Lock,
-  ChevronDown
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 interface TodayWorkSectionProps {
   entries: WorkEntry[];
   companies: CompanyTag[];
+  chatMessages?: ItemChatMessage[];
+  onSendMessage?: (targetId: string, targetType: 'work_entry' | 'assigned_task', text: string) => Promise<any>;
+  onDeleteChatMessage?: (messageId: string) => Promise<any>;
   onAddEntry: (entry: Omit<WorkEntry, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   onUpdateEntry: (id: string, updates: Partial<WorkEntry>) => Promise<void>;
   onDeleteEntry?: (id: string) => Promise<void>;
   currentUserId: string;
   currentUserName: string;
+  currentUserRole?: UserRole;
   initialTaskText?: string;
   onClearPrefill?: () => void;
 }
@@ -40,11 +48,15 @@ interface TodayWorkSectionProps {
 export const TodayWorkSection: React.FC<TodayWorkSectionProps> = ({
   entries = [],
   companies = [],
+  chatMessages = [],
+  onSendMessage,
+  onDeleteChatMessage,
   onAddEntry,
   onUpdateEntry,
   onDeleteEntry,
   currentUserId,
   currentUserName,
+  currentUserRole = 'member',
   initialTaskText,
   onClearPrefill,
 }) => {
@@ -397,6 +409,12 @@ export const TodayWorkSection: React.FC<TodayWorkSectionProps> = ({
               key={entry.id}
               entry={entry}
               activeCompanies={activeCompanies}
+              chatMessages={chatMessages}
+              currentUserId={currentUserId}
+              currentUserName={currentUserName}
+              currentUserRole={currentUserRole}
+              onSendMessage={onSendMessage}
+              onDeleteChatMessage={onDeleteChatMessage}
               onUpdateEntry={onUpdateEntry}
             />
           ))
@@ -411,12 +429,24 @@ export const TodayWorkSection: React.FC<TodayWorkSectionProps> = ({
 interface TodayEntryCardProps {
   entry: WorkEntry;
   activeCompanies: string[];
+  chatMessages?: ItemChatMessage[];
+  currentUserId: string;
+  currentUserName: string;
+  currentUserRole?: UserRole;
+  onSendMessage?: (targetId: string, targetType: 'work_entry' | 'assigned_task', text: string) => Promise<any>;
+  onDeleteChatMessage?: (messageId: string) => Promise<any>;
   onUpdateEntry: (id: string, updates: Partial<WorkEntry>) => Promise<void>;
 }
 
 const TodayEntryCard: React.FC<TodayEntryCardProps> = ({
   entry,
   activeCompanies,
+  chatMessages = [],
+  currentUserId,
+  currentUserName,
+  currentUserRole = 'member',
+  onSendMessage,
+  onDeleteChatMessage,
   onUpdateEntry,
 }) => {
   const [taskText, setTaskText] = useState(entry.taskText);
@@ -425,6 +455,12 @@ const TodayEntryCard: React.FC<TodayEntryCardProps> = ({
   const [status, setStatus] = useState<TaskStatus>(entry.status);
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+
+  // Messages count for this entry
+  const entryMessages = chatMessages.filter(
+    (m) => m.targetId === entry.id && m.targetType === 'work_entry'
+  );
 
   // Sync state if props change from external sync
   React.useEffect(() => {
@@ -651,6 +687,54 @@ const TodayEntryCard: React.FC<TodayEntryCardProps> = ({
             <p className="text-slate-300 mt-1 italic leading-relaxed">"{entry.remarks}"</p>
           </div>
         </div>
+      )}
+
+      {/* Card Action Bar: Discussion & Feedback Chat Toggle */}
+      <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => setShowChat(!showChat)}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+            showChat
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+              : entryMessages.length > 0
+              ? 'bg-indigo-600/15 hover:bg-indigo-600/25 text-indigo-300 border border-indigo-500/30'
+              : 'bg-[#1F2636] hover:bg-slate-750 text-slate-400 hover:text-slate-200 border border-slate-700/60'
+          }`}
+        >
+          <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />
+          <span>
+            {entryMessages.length > 0 
+              ? `Discussion & Feedback (${entryMessages.length})` 
+              : 'Add / View Feedback'}
+          </span>
+          {showChat ? (
+            <ChevronUp className="w-3.5 h-3.5 ml-0.5 opacity-70" />
+          ) : (
+            <ChevronDown className="w-3.5 h-3.5 ml-0.5 opacity-70" />
+          )}
+        </button>
+
+        <span className="text-[11px] text-slate-500">
+          {entry.date ? formatDateLabel(entry.date) : 'Today'}
+        </span>
+      </div>
+
+      {/* Expanded Inline Chat / Feedback Thread */}
+      {showChat && onSendMessage && (
+        <ItemFeedbackChat
+          targetId={entry.id}
+          targetType="work_entry"
+          targetTitle={entry.company}
+          targetSubtitle={entry.taskText.slice(0, 45)}
+          messages={chatMessages}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          currentUserRole={currentUserRole}
+          onSendMessage={onSendMessage}
+          onDeleteMessage={onDeleteChatMessage}
+          isInline={true}
+        />
       )}
 
     </div>

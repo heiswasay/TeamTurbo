@@ -8,6 +8,7 @@ import {
   ListTodo, 
   Zap, 
   RotateCcw,
+  MessageSquare,
   X 
 } from 'lucide-react';
 
@@ -25,7 +26,7 @@ export const NotificationToasts: React.FC<NotificationToastsProps> = ({
   return (
     <div className="fixed top-20 right-4 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
       {toasts.map((toast) => {
-        let icon = <Bell className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />;
+        let icon = <Bell className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />;
         let borderLeftClass = 'border-l-indigo-500';
         let iconBgClass = 'bg-indigo-50 border-indigo-200/80 text-indigo-600 dark:bg-indigo-950/60 dark:border-indigo-800/60 dark:text-indigo-400';
 
@@ -37,6 +38,10 @@ export const NotificationToasts: React.FC<NotificationToastsProps> = ({
           icon = <RotateCcw className="w-4 h-4 text-sky-600 dark:text-sky-400" />;
           borderLeftClass = 'border-l-sky-500';
           iconBgClass = 'bg-sky-50 border-sky-200/80 text-sky-600 dark:bg-sky-950/60 dark:border-sky-800/60 dark:text-sky-400';
+        } else if (toast.type === 'chat') {
+          icon = <MessageSquare className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />;
+          borderLeftClass = 'border-l-indigo-500';
+          iconBgClass = 'bg-indigo-50 border-indigo-200/80 text-indigo-600 dark:bg-indigo-950/60 dark:border-indigo-800/60 dark:text-indigo-400';
         } else if (toast.type === 'handover') {
           icon = <ArrowRightLeft className="w-4 h-4 text-amber-600 dark:text-amber-400" />;
           borderLeftClass = 'border-l-amber-500';
@@ -58,7 +63,7 @@ export const NotificationToasts: React.FC<NotificationToastsProps> = ({
         return (
           <div
             key={toast.id}
-            className={`notification-toast-item pointer-events-auto backdrop-blur-md bg-white dark:bg-[#161B27] border border-slate-200 dark:border-slate-700/80 ${borderLeftClass} border-l-4 rounded-2xl p-3.5 shadow-xl shadow-slate-900/10 dark:shadow-black/60 flex items-start gap-3 transition-all transform animate-in fade-in slide-in-from-top-3 duration-200`}
+            className={`notification-toast-item pointer-events-auto bg-white dark:bg-[#161B27] border border-slate-200 dark:border-slate-700/80 ${borderLeftClass} border-l-4 rounded-2xl p-3.5 shadow-xl shadow-slate-900/10 dark:shadow-black/60 flex items-start gap-3 transition-all transform animate-in fade-in slide-in-from-top-3 duration-200`}
           >
             <div className={`p-2 rounded-xl border shrink-0 ${iconBgClass}`}>
               {icon}

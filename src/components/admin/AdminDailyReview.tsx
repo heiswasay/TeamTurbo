@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { WorkEntry, UserProfile, ReviewStatus } from '../../types';
+import { WorkEntry, UserProfile, ReviewStatus, ItemChatMessage } from '../../types';
 import { formatDateLabel, getTodayDateString, getPastDates } from '../../lib/dateUtils';
 import { AdminEntryReviewCard } from './AdminLiveToday';
 import { 
@@ -17,16 +17,24 @@ import {
 interface AdminDailyReviewProps {
   entries: WorkEntry[];
   teamMembers: UserProfile[];
+  chatMessages?: ItemChatMessage[];
+  onSendMessage?: (targetId: string, targetType: 'work_entry' | 'assigned_task', text: string) => Promise<any>;
+  onDeleteChatMessage?: (messageId: string) => Promise<any>;
   onUpdateReview: (entryId: string, review: ReviewStatus, remarks?: string) => Promise<void>;
   onDeleteEntry?: (entryId: string) => Promise<void>;
+  adminId?: string;
   adminName: string;
 }
 
 export const AdminDailyReview: React.FC<AdminDailyReviewProps> = ({
   entries = [],
   teamMembers = [],
+  chatMessages = [],
+  onSendMessage,
+  onDeleteChatMessage,
   onUpdateReview,
   onDeleteEntry,
+  adminId = '',
   adminName,
 }) => {
   const todayStr = getTodayDateString();
@@ -176,8 +184,12 @@ export const AdminDailyReview: React.FC<AdminDailyReviewProps> = ({
                       <AdminEntryReviewCard
                         key={entry.id}
                         entry={entry}
+                        chatMessages={chatMessages}
+                        onSendMessage={onSendMessage}
+                        onDeleteChatMessage={onDeleteChatMessage}
                         onUpdateReview={onUpdateReview}
                         onDeleteEntry={onDeleteEntry}
+                        adminId={adminId}
                         adminName={adminName}
                       />
                     ))

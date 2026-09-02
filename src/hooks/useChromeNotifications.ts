@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { UserProfile, AssignedTask, Handover, WorkEntry } from '../types';
+import { UserProfile, AssignedTask, Handover, WorkEntry, ItemChatMessage } from '../types';
 import { 
   sendChromeNotification, 
   getNotificationPermissionStatus,
@@ -10,7 +10,7 @@ import {
 
 export interface InAppToast {
   id: string;
-  type: 'task' | 'handover' | 'rework' | 'review' | 'reopen' | 'log' | 'info';
+  type: 'task' | 'handover' | 'rework' | 'review' | 'reopen' | 'log' | 'chat' | 'info';
   title: string;
   message: string;
   timestamp: string;
@@ -21,6 +21,7 @@ interface UseChromeNotificationsProps {
   tasks: AssignedTask[];
   handovers: Handover[];
   entries: WorkEntry[];
+  chatMessages?: ItemChatMessage[];
 }
 
 export function useChromeNotifications({
@@ -28,6 +29,7 @@ export function useChromeNotifications({
   tasks,
   handovers,
   entries,
+  chatMessages = [],
 }: UseChromeNotificationsProps) {
   const [permission, setPermission] = useState<NotificationPermissionStatus>(() => 
     getNotificationPermissionStatus()
@@ -39,6 +41,7 @@ export function useChromeNotifications({
   const prevTasksRef = useRef<Map<string, AssignedTask>>(new Map());
   const prevHandoversRef = useRef<Map<string, Handover>>(new Map());
   const prevEntriesRef = useRef<Map<string, WorkEntry>>(new Map());
+  const prevChatRef = useRef<Map<string, ItemChatMessage>>(new Map());
 
   // Check permission on mount / window focus
   useEffect(() => {
@@ -112,10 +115,11 @@ export function useChromeNotifications({
 
     // 1. Initial snapshot seeding (do not notify on first load)
     if (!isInitializedRef.current) {
-      if (tasks.length > 0 || handovers.length > 0 || entries.length > 0) {
+      if (tasks.length > 0 || handovers.length > 0 || entries.length > 0 || chatMessages.length > 0) {
         tasks.forEach((t) => prevTasksRef.current.set(t.id, t));
         handovers.forEach((h) => prevHandoversRef.current.set(h.id, h));
         entries.forEach((e) => prevEntriesRef.current.set(e.id, e));
+        chatMessages.forEach((c) => prevChatRef.current.set(c.id, c));
         isInitializedRef.current = true;
       }
       return;
@@ -371,7 +375,62 @@ export function useChromeNotifications({
     entries.forEach((e) => newEntriesMap.set(e.id, e));
     prevEntriesRef.current = newEntriesMap;
 
-  }, [tasks, handovers, entries, userProfile, addToast]);
+    // 5. Process Chat / Feedback Messages changes
+    const chatEnabled = userProfile.notificationPreferences?.chatFeedback !== false;
+    if (chatEnabled) {
+      chatMessages.forEach((msg) => {
+        const prev = prevChatRef.current.get(msg.id);
+
+        if (!prev) {
+          // New message posted
+          if (msg.senderId !== userProfile.uid) {
+            let shouldNotify = false;
+            let title = '💬 New Feedback Message';
+            let targetLabel = '';
+
+            if (msg.targetType === 'work_entry') {
+              const matchingEntry = entries.find((e) => e.id === msg.targetId);
+              if (matchingEntry && (matchingEntry.userId === userProfile.uid || isAdmin)) {
+                shouldNotify = true;
+                targetLabel = matchingEntry.company ? `${matchingEntry.company}` : 'Work Entry';
+                title = `💬 Feedback on ${targetLabel}`;
+              }
+            } else if (msg.targetType === 'assigned_task') {
+              const matchingTask = tasks.find((t) => t.id === msg.targetId);
+              if (matchingTask && (matchingTask.assignedTo === userProfile.uid || matchingTask.assignedBy === userProfile.uid || isAdmin)) {
+                shouldNotify = true;
+                targetLabel = `"${matchingTask.title.slice(0, 30)}"`;
+                title = `💬 Discussion on Task`;
+              }
+            }
+
+            if (shouldNotify) {
+              const body = `${msg.senderName} (${msg.senderRole === 'admin' ? 'Lead Admin' : 'Member'}): "${msg.message.slice(0, 65)}${msg.message.length > 65 ? '...' : ''}"`;
+
+              sendChromeNotification({
+                title,
+                body,
+                tag: `chat-msg-${msg.id}`,
+                soundEnabled,
+              });
+
+              addToast({
+                type: 'chat',
+                title,
+                message: body,
+              });
+            }
+          }
+        }
+      });
+    }
+
+    // Update chat map
+    const newChatMap = new Map<string, ItemChatMessage>();
+    chatMessages.forEach((c) => newChatMap.set(c.id, c));
+    prevChatRef.current = newChatMap;
+
+  }, [tasks, handovers, entries, chatMessages, userProfile, addToast]);
 
   return {
     permission,
