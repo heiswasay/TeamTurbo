@@ -360,91 +360,185 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
         </div>
       </div>
 
-      {/* Grid of Team Members with Today's Entries */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {teamPunctualityList.map(({ member, attendance: att, punct }) => {
-          const memberEntries = entriesByMember[member.uid] || [];
+      {/* 2-Column Masonry Layout of Team Members with Today's Entries */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+        {/* Column 1 */}
+        <div className="space-y-6 flex flex-col">
+          {teamPunctualityList
+            .filter((_, idx) => idx % 2 === 0)
+            .map(({ member, attendance: att, punct }) => {
+              const memberEntries = entriesByMember[member.uid] || [];
 
-          return (
-            <div
-              key={member.uid}
-              className={`bg-[#161B27] border rounded-3xl p-6 shadow-xl space-y-4 flex flex-col justify-between transition-all ${
-                punct.isLate ? 'border-rose-600/40' : 'border-slate-800'
-              }`}
-            >
-              {/* Member Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-2xl font-bold text-white shadow-lg flex items-center justify-center text-sm border shrink-0 ${
-                    punct.isLate 
-                      ? 'bg-rose-600 shadow-rose-600/20 border-rose-400/20' 
-                      : 'bg-indigo-600 shadow-indigo-600/20 border-indigo-400/20'
-                  }`}>
-                    {member.name.charAt(0)}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-base font-bold text-white">
-                        {member.name}
-                      </h3>
-                      {punct.isLate && (
-                        <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-rose-500/20 text-rose-400 border border-rose-500/40 rounded-full font-bold uppercase tracking-wider">
-                          <AlertTriangle className="w-2.5 h-2.5 text-rose-400" />
-                          LATE
-                        </span>
-                      )}
-                      {member.role === 'admin' && (
-                        <span className="text-[9px] px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-md font-bold uppercase">
-                          Admin
-                        </span>
-                      )}
+              return (
+                <div
+                  key={member.uid}
+                  className={`bg-[#161B27] border rounded-3xl p-6 shadow-xl space-y-4 transition-all ${
+                    punct.isLate ? 'border-rose-600/40' : 'border-slate-800'
+                  }`}
+                >
+                  {/* Member Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-2xl font-bold text-white shadow-lg flex items-center justify-center text-sm border shrink-0 ${
+                        punct.isLate 
+                          ? 'bg-rose-600 shadow-rose-600/20 border-rose-400/20' 
+                          : 'bg-indigo-600 shadow-indigo-600/20 border-indigo-400/20'
+                      }`}>
+                        {member.name.charAt(0)}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base font-bold text-white">
+                            {member.name}
+                          </h3>
+                          {punct.isLate && (
+                            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-rose-500/20 text-rose-400 border border-rose-500/40 rounded-full font-bold uppercase tracking-wider">
+                              <AlertTriangle className="w-2.5 h-2.5 text-rose-400" />
+                              LATE
+                            </span>
+                          )}
+                          {member.role === 'admin' && (
+                            <span className="text-[9px] px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-md font-bold uppercase">
+                              Admin
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400">
+                          {member.designation} • Shift: {member.shiftStart || '10:30'} – {member.shiftEnd || '18:30'}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-xs text-slate-400">
-                      {member.designation} • Shift: {member.shiftStart || '10:30'} – {member.shiftEnd || '18:30'}
-                    </p>
+
+                    {/* Live Clock Badge + Entry Count Pill */}
+                    <div className="flex items-center gap-2 self-start sm:self-center">
+                      <MemberLiveClockBadge member={member} attendance={att} />
+
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold border shrink-0 ${
+                        memberEntries.length > 0
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                          : 'bg-[#1F2636] text-slate-400 border-slate-700/60'
+                      }`}>
+                        {memberEntries.length} {memberEntries.length === 1 ? 'log' : 'logs'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Member's Today Entries */}
+                  <div className="space-y-3">
+                    {memberEntries.length === 0 ? (
+                      <div className="py-8 text-center bg-[#1F2636]/50 rounded-2xl border border-dashed border-slate-800">
+                        <Clock className="w-6 h-6 text-slate-600 mx-auto mb-1.5" />
+                        <p className="text-xs text-slate-500">No work logged yet today</p>
+                      </div>
+                    ) : (
+                      memberEntries.map((entry) => (
+                        <AdminEntryReviewCard
+                          key={entry.id}
+                          entry={entry}
+                          chatMessages={chatMessages}
+                          onSendMessage={onSendMessage}
+                          onDeleteChatMessage={onDeleteChatMessage}
+                          onUpdateReview={onUpdateReview}
+                          onDeleteEntry={onDeleteEntry}
+                          adminId={adminId}
+                          adminName={adminName}
+                        />
+                      ))
+                    )}
                   </div>
                 </div>
+              );
+            })}
+        </div>
 
-                {/* Live Clock Badge + Entry Count Pill */}
-                <div className="flex items-center gap-2 self-start sm:self-center">
-                  <MemberLiveClockBadge member={member} attendance={att} />
+        {/* Column 2 */}
+        <div className="space-y-6 flex flex-col">
+          {teamPunctualityList
+            .filter((_, idx) => idx % 2 === 1)
+            .map(({ member, attendance: att, punct }) => {
+              const memberEntries = entriesByMember[member.uid] || [];
 
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold border shrink-0 ${
-                    memberEntries.length > 0
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                      : 'bg-[#1F2636] text-slate-400 border-slate-700/60'
-                  }`}>
-                    {memberEntries.length} {memberEntries.length === 1 ? 'log' : 'logs'}
-                  </span>
-                </div>
-              </div>
+              return (
+                <div
+                  key={member.uid}
+                  className={`bg-[#161B27] border rounded-3xl p-6 shadow-xl space-y-4 transition-all ${
+                    punct.isLate ? 'border-rose-600/40' : 'border-slate-800'
+                  }`}
+                >
+                  {/* Member Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-2xl font-bold text-white shadow-lg flex items-center justify-center text-sm border shrink-0 ${
+                        punct.isLate 
+                          ? 'bg-rose-600 shadow-rose-600/20 border-rose-400/20' 
+                          : 'bg-indigo-600 shadow-indigo-600/20 border-indigo-400/20'
+                      }`}>
+                        {member.name.charAt(0)}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base font-bold text-white">
+                            {member.name}
+                          </h3>
+                          {punct.isLate && (
+                            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-rose-500/20 text-rose-400 border border-rose-500/40 rounded-full font-bold uppercase tracking-wider">
+                              <AlertTriangle className="w-2.5 h-2.5 text-rose-400" />
+                              LATE
+                            </span>
+                          )}
+                          {member.role === 'admin' && (
+                            <span className="text-[9px] px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-md font-bold uppercase">
+                              Admin
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400">
+                          {member.designation} • Shift: {member.shiftStart || '10:30'} – {member.shiftEnd || '18:30'}
+                        </p>
+                      </div>
+                    </div>
 
-              {/* Member's Today Entries */}
-              <div className="space-y-3 flex-1">
-                {memberEntries.length === 0 ? (
-                  <div className="py-8 text-center bg-[#1F2636]/50 rounded-2xl border border-dashed border-slate-800">
-                    <Clock className="w-6 h-6 text-slate-600 mx-auto mb-1.5" />
-                    <p className="text-xs text-slate-500">No work logged yet today</p>
+                    {/* Live Clock Badge + Entry Count Pill */}
+                    <div className="flex items-center gap-2 self-start sm:self-center">
+                      <MemberLiveClockBadge member={member} attendance={att} />
+
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold border shrink-0 ${
+                        memberEntries.length > 0
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                          : 'bg-[#1F2636] text-slate-400 border-slate-700/60'
+                      }`}>
+                        {memberEntries.length} {memberEntries.length === 1 ? 'log' : 'logs'}
+                      </span>
+                    </div>
                   </div>
-                ) : (
-                  memberEntries.map((entry) => (
-                    <AdminEntryReviewCard
-                      key={entry.id}
-                      entry={entry}
-                      chatMessages={chatMessages}
-                      onSendMessage={onSendMessage}
-                      onDeleteChatMessage={onDeleteChatMessage}
-                      onUpdateReview={onUpdateReview}
-                      onDeleteEntry={onDeleteEntry}
-                      adminId={adminId}
-                      adminName={adminName}
-                    />
-                  ))
-                )}
-              </div>
-            </div>
-          );
-        })}
+
+                  {/* Member's Today Entries */}
+                  <div className="space-y-3">
+                    {memberEntries.length === 0 ? (
+                      <div className="py-8 text-center bg-[#1F2636]/50 rounded-2xl border border-dashed border-slate-800">
+                        <Clock className="w-6 h-6 text-slate-600 mx-auto mb-1.5" />
+                        <p className="text-xs text-slate-500">No work logged yet today</p>
+                      </div>
+                    ) : (
+                      memberEntries.map((entry) => (
+                        <AdminEntryReviewCard
+                          key={entry.id}
+                          entry={entry}
+                          chatMessages={chatMessages}
+                          onSendMessage={onSendMessage}
+                          onDeleteChatMessage={onDeleteChatMessage}
+                          onUpdateReview={onUpdateReview}
+                          onDeleteEntry={onDeleteEntry}
+                          adminId={adminId}
+                          adminName={adminName}
+                        />
+                      ))
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+        </div>
       </div>
 
     </div>

@@ -127,78 +127,155 @@ export const AdminDailyReview: React.FC<AdminDailyReviewProps> = ({
 
       </div>
 
-      {/* Large Member Cards for Selected Date */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {teamMembers
-          .filter((m) => m.active !== false)
-          .map((member) => {
-            const memberEntries = entriesByMember[member.uid] || [];
-            const memberPending = memberEntries.filter((e) => e.review === 'pending').length;
+      {/* 2-Column Masonry Layout of Member Cards for Selected Date */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+        {/* Column 1 */}
+        <div className="space-y-6 flex flex-col">
+          {teamMembers
+            .filter((m) => m.active !== false)
+            .filter((_, idx) => idx % 2 === 0)
+            .map((member) => {
+              const memberEntries = entriesByMember[member.uid] || [];
+              const memberPending = memberEntries.filter((e) => e.review === 'pending').length;
 
-            return (
-              <div
-                key={member.uid}
-                className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4 flex flex-col justify-between"
-              >
-                {/* Member Header */}
-                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 flex items-center justify-center font-bold text-sm">
-                      {member.name.charAt(0)}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-bold text-white">
-                          {member.name}
-                        </h3>
-                        {memberPending > 0 && (
-                          <span className="text-[10px] px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-md font-semibold animate-pulse">
-                            {memberPending} to review
-                          </span>
-                        )}
+              return (
+                <div
+                  key={member.uid}
+                  className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4"
+                >
+                  {/* Member Header */}
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 flex items-center justify-center font-bold text-sm">
+                        {member.name.charAt(0)}
                       </div>
-                      <p className="text-xs text-slate-400">
-                        {member.designation} • Shift: {member.shiftStart} – {member.shiftEnd}
-                      </p>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base font-bold text-white">
+                            {member.name}
+                          </h3>
+                          {memberPending > 0 && (
+                            <span className="text-[10px] px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-md font-semibold animate-pulse">
+                              {memberPending} to review
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400">
+                          {member.designation} • Shift: {member.shiftStart} – {member.shiftEnd}
+                        </p>
+                      </div>
                     </div>
+
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
+                      memberEntries.length > 0
+                        ? 'bg-slate-800 text-slate-200 border-slate-700'
+                        : 'bg-red-950/40 text-red-300 border-red-900/40'
+                    }`}>
+                      {memberEntries.length > 0 ? `${memberEntries.length} logged` : 'No logs recorded'}
+                    </span>
                   </div>
 
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
-                    memberEntries.length > 0
-                      ? 'bg-slate-800 text-slate-200 border-slate-700'
-                      : 'bg-red-950/40 text-red-300 border-red-900/40'
-                  }`}>
-                    {memberEntries.length > 0 ? `${memberEntries.length} logged` : 'No logs recorded'}
-                  </span>
+                  {/* Member entries */}
+                  <div className="space-y-3">
+                    {memberEntries.length === 0 ? (
+                      <div className="py-8 text-center bg-slate-950/40 rounded-2xl border border-dashed border-slate-800">
+                        <Clock className="w-6 h-6 text-slate-600 mx-auto mb-1.5" />
+                        <p className="text-xs text-slate-400">No work logged for this date</p>
+                      </div>
+                    ) : (
+                      memberEntries.map((entry) => (
+                        <AdminEntryReviewCard
+                          key={entry.id}
+                          entry={entry}
+                          chatMessages={chatMessages}
+                          onSendMessage={onSendMessage}
+                          onDeleteChatMessage={onDeleteChatMessage}
+                          onUpdateReview={onUpdateReview}
+                          onDeleteEntry={onDeleteEntry}
+                          adminId={adminId}
+                          adminName={adminName}
+                        />
+                      ))
+                    )}
+                  </div>
                 </div>
+              );
+            })}
+        </div>
 
-                {/* Member entries */}
-                <div className="space-y-3 flex-1">
-                  {memberEntries.length === 0 ? (
-                    <div className="py-8 text-center bg-slate-950/40 rounded-2xl border border-dashed border-slate-800">
-                      <Clock className="w-6 h-6 text-slate-600 mx-auto mb-1.5" />
-                      <p className="text-xs text-slate-400">No work logged for this date</p>
+        {/* Column 2 */}
+        <div className="space-y-6 flex flex-col">
+          {teamMembers
+            .filter((m) => m.active !== false)
+            .filter((_, idx) => idx % 2 === 1)
+            .map((member) => {
+              const memberEntries = entriesByMember[member.uid] || [];
+              const memberPending = memberEntries.filter((e) => e.review === 'pending').length;
+
+              return (
+                <div
+                  key={member.uid}
+                  className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4"
+                >
+                  {/* Member Header */}
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 flex items-center justify-center font-bold text-sm">
+                        {member.name.charAt(0)}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base font-bold text-white">
+                            {member.name}
+                          </h3>
+                          {memberPending > 0 && (
+                            <span className="text-[10px] px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-md font-semibold animate-pulse">
+                              {memberPending} to review
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400">
+                          {member.designation} • Shift: {member.shiftStart} – {member.shiftEnd}
+                        </p>
+                      </div>
                     </div>
-                  ) : (
-                    memberEntries.map((entry) => (
-                      <AdminEntryReviewCard
-                        key={entry.id}
-                        entry={entry}
-                        chatMessages={chatMessages}
-                        onSendMessage={onSendMessage}
-                        onDeleteChatMessage={onDeleteChatMessage}
-                        onUpdateReview={onUpdateReview}
-                        onDeleteEntry={onDeleteEntry}
-                        adminId={adminId}
-                        adminName={adminName}
-                      />
-                    ))
-                  )}
-                </div>
 
-              </div>
-            );
-          })}
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
+                      memberEntries.length > 0
+                        ? 'bg-slate-800 text-slate-200 border-slate-700'
+                        : 'bg-red-950/40 text-red-300 border-red-900/40'
+                    }`}>
+                      {memberEntries.length > 0 ? `${memberEntries.length} logged` : 'No logs recorded'}
+                    </span>
+                  </div>
+
+                  {/* Member entries */}
+                  <div className="space-y-3">
+                    {memberEntries.length === 0 ? (
+                      <div className="py-8 text-center bg-slate-950/40 rounded-2xl border border-dashed border-slate-800">
+                        <Clock className="w-6 h-6 text-slate-600 mx-auto mb-1.5" />
+                        <p className="text-xs text-slate-400">No work logged for this date</p>
+                      </div>
+                    ) : (
+                      memberEntries.map((entry) => (
+                        <AdminEntryReviewCard
+                          key={entry.id}
+                          entry={entry}
+                          chatMessages={chatMessages}
+                          onSendMessage={onSendMessage}
+                          onDeleteChatMessage={onDeleteChatMessage}
+                          onUpdateReview={onUpdateReview}
+                          onDeleteEntry={onDeleteEntry}
+                          adminId={adminId}
+                          adminName={adminName}
+                        />
+                      ))
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+        </div>
       </div>
 
     </div>
