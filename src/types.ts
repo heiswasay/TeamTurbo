@@ -131,6 +131,9 @@ export interface ItemChatMessage {
   senderRole: UserRole;
   message: string;
   createdAt: string;
+  targetUserId?: string;
+  targetUserName?: string;
+  targetTitle?: string;
 }
 
 export const DEFAULT_COMPANIES = [

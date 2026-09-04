@@ -492,24 +492,56 @@ export function useTrackerData(currentUser: any, userProfile: UserProfile | null
   const sendChatMessage = async (
     targetId: string,
     targetType: 'work_entry' | 'assigned_task',
-    message: string
+    message: string,
+    metadata?: { targetUserId?: string; targetUserName?: string; targetTitle?: string }
   ) => {
-    if (!currentUser || !userProfile) throw new Error('Not authenticated');
     const cleanMsg = message.trim();
     if (!cleanMsg) return;
 
-    const newMsg: Omit<ItemChatMessage, 'id'> = {
+    const senderUid = userProfile?.uid || currentUser?.uid || 'user';
+    const senderName = userProfile?.name || currentUser?.displayName || currentUser?.email || 'User';
+    const senderRole = userProfile?.role || 'member';
+
+    // Auto-resolve target metadata from loaded entries or tasks if not explicitly provided
+    let targetUserId = metadata?.targetUserId || '';
+    let targetUserName = metadata?.targetUserName || '';
+    let targetTitle = metadata?.targetTitle || '';
+
+    if (!targetUserId || !targetTitle) {
+      if (targetType === 'work_entry') {
+        const foundEntry = entries.find((e) => e.id === targetId);
+        if (foundEntry) {
+          targetUserId = targetUserId || foundEntry.userId || '';
+          targetUserName = targetUserName || foundEntry.userName || '';
+          targetTitle = targetTitle || foundEntry.company || (foundEntry.taskText ? foundEntry.taskText.slice(0, 35) : 'Work Entry');
+        }
+      } else if (targetType === 'assigned_task') {
+        const foundTask = tasks.find((t) => t.id === targetId);
+        if (foundTask) {
+          targetUserId = targetUserId || foundTask.assignedTo || '';
+          targetUserName = targetUserName || foundTask.assignedToName || '';
+          targetTitle = targetTitle || foundTask.title || 'Task';
+        }
+      }
+    }
+
+    const msgId = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const newMsg: ItemChatMessage = {
+      id: msgId,
       targetId,
       targetType,
-      senderId: userProfile.uid,
-      senderName: userProfile.name,
-      senderRole: userProfile.role,
+      senderId: senderUid,
+      senderName,
+      senderRole,
       message: cleanMsg,
       createdAt: new Date().toISOString(),
+      targetUserId,
+      targetUserName,
+      targetTitle,
     };
 
-    const docRef = await addDoc(collection(db, 'chat_messages'), newMsg);
-    return docRef.id;
+    await setDoc(doc(db, 'chat_messages', msgId), newMsg);
+    return msgId;
   };
 
   const deleteChatMessage = async (messageId: string) => {

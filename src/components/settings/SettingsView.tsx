@@ -108,6 +108,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     newTask: userProfile?.notificationPreferences?.newTask ?? true,
     handover: userProfile?.notificationPreferences?.handover ?? true,
     rework: userProfile?.notificationPreferences?.rework ?? true,
+    chatFeedback: userProfile?.notificationPreferences?.chatFeedback ?? true,
     adminNewLog: userProfile?.notificationPreferences?.adminNewLog ?? true,
     soundEnabled: userProfile?.notificationPreferences?.soundEnabled ?? true,
   });
@@ -182,7 +183,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  const handleToggleNotif = async (key: 'newTask' | 'handover' | 'rework' | 'adminNewLog' | 'soundEnabled') => {
+  const handleToggleNotif = async (key: 'newTask' | 'handover' | 'rework' | 'chatFeedback' | 'adminNewLog' | 'soundEnabled') => {
     const updated = { ...notifState, [key]: !notifState[key] };
     setNotifState(updated);
     try {
@@ -695,6 +696,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 type="checkbox"
                 checked={notifState.rework}
                 onChange={() => handleToggleNotif('rework')}
+                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+              />
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-bold text-white">Work & Task Message Alerts</h4>
+                <p className="text-[11px] text-slate-400">Instant notification when {isAdmin ? 'team members' : 'admin or teammates'} add a message in work entries or tasks</p>
+              </div>
+              <input
+                type="checkbox"
+                checked={notifState.chatFeedback}
+                onChange={() => handleToggleNotif('chatFeedback')}
                 className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
               />
             </div>

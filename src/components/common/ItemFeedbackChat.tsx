@@ -44,6 +44,7 @@ export const ItemFeedbackChat: React.FC<ItemFeedbackChatProps> = ({
 }) => {
   const [inputText, setInputText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -63,13 +64,15 @@ export const ItemFeedbackChat: React.FC<ItemFeedbackChatProps> = ({
 
     try {
       setIsSubmitting(true);
+      setSendError(null);
       await onSendMessage(targetId, targetType, text);
       setInputText('');
       if (inputRef.current) {
         inputRef.current.style.height = 'auto';
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to send feedback message:', err);
+      setSendError(err?.message || 'Failed to send message. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -247,6 +250,18 @@ export const ItemFeedbackChat: React.FC<ItemFeedbackChatProps> = ({
 
       {/* Input Box and Action */}
       <div className={`p-3 ${isInline ? 'bg-transparent' : 'bg-[#161B27] border-t border-slate-800'}`}>
+        {sendError && (
+          <div className="mb-2 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center justify-between">
+            <span>{sendError}</span>
+            <button
+              type="button"
+              onClick={() => setSendError(null)}
+              className="text-rose-400 hover:text-white font-bold text-xs ml-2"
+            >
+              ×
+            </button>
+          </div>
+        )}
         <form
           onSubmit={(e) => {
             e.preventDefault();

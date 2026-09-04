@@ -244,15 +244,15 @@ export const AdminLiveToday: React.FC<AdminLiveTodayProps> = ({
     <div className="space-y-6">
       
       {/* Top Section: Admin Shift Clock & Live Team Banner */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        {/* Admin Square Clock Card */}
-        <div className="lg:col-span-4 flex flex-col">
-          <AttendanceWidget className="h-full" />
+        {/* Admin Clock Card */}
+        <div className="lg:col-span-4">
+          <AttendanceWidget />
         </div>
 
         {/* Live Team Stream Overview Card */}
-        <div className="lg:col-span-8 bg-[#161B27] border border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xl relative overflow-hidden flex flex-col justify-between">
+        <div className="lg:col-span-8 bg-[#161B27] border border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xl relative overflow-hidden flex flex-col space-y-5">
           <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
 
           <div className="relative z-10 space-y-4">

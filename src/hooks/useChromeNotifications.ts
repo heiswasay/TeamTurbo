@@ -42,6 +42,9 @@ export function useChromeNotifications({
   const prevHandoversRef = useRef<Map<string, Handover>>(new Map());
   const prevEntriesRef = useRef<Map<string, WorkEntry>>(new Map());
   const prevChatRef = useRef<Map<string, ItemChatMessage>>(new Map());
+  const hasSeededChatRef = useRef(false);
+  const notifiedMsgIdsRef = useRef<Set<string>>(new Set());
+  const mountTimeRef = useRef<number>(Date.now());
 
   // Check permission on mount / window focus
   useEffect(() => {
@@ -377,52 +380,123 @@ export function useChromeNotifications({
 
     // 5. Process Chat / Feedback Messages changes
     const chatEnabled = userProfile.notificationPreferences?.chatFeedback !== false;
-    if (chatEnabled) {
-      chatMessages.forEach((msg) => {
-        const prev = prevChatRef.current.get(msg.id);
+    if (chatEnabled && chatMessages.length > 0) {
+      // First load seeding: record existing chat messages so they do not falsely notify on startup
+      if (!hasSeededChatRef.current) {
+        chatMessages.forEach((c) => prevChatRef.current.set(c.id, c));
+        hasSeededChatRef.current = true;
+      } else {
+        const myUid = userProfile.uid;
+        const myEmail = userProfile.email?.toLowerCase().trim();
+        const myName = userProfile.name?.toLowerCase().trim();
 
-        if (!prev) {
-          // New message posted
-          if (msg.senderId !== userProfile.uid) {
-            let shouldNotify = false;
-            let title = '💬 New Feedback Message';
-            let targetLabel = '';
+        chatMessages.forEach((msg) => {
+          const prev = prevChatRef.current.get(msg.id);
 
-            if (msg.targetType === 'work_entry') {
-              const matchingEntry = entries.find((e) => e.id === msg.targetId);
-              if (matchingEntry && (matchingEntry.userId === userProfile.uid || isAdmin)) {
-                shouldNotify = true;
-                targetLabel = matchingEntry.company ? `${matchingEntry.company}` : 'Work Entry';
-                title = `💬 Feedback on ${targetLabel}`;
+          if (!prev && !notifiedMsgIdsRef.current.has(msg.id)) {
+            // Check if message is older than session start time (avoid retroactive spam)
+            const msgTime = new Date(msg.createdAt || 0).getTime();
+            const isRecent = msgTime > mountTimeRef.current - 10000 || (Date.now() - msgTime < 1000 * 60 * 3);
+
+            // Is the current user the one who sent this message?
+            const isSender = 
+              msg.senderId === myUid || 
+              (Boolean(myEmail) && msg.senderId?.toLowerCase() === myEmail) || 
+              (Boolean(myName) && msg.senderName?.toLowerCase().trim() === myName && msg.senderRole === userProfile.role);
+
+            if (!isSender && isRecent) {
+              let shouldNotify = false;
+              let targetLabel = msg.targetTitle || '';
+              const senderLabel = msg.senderName || (msg.senderRole === 'admin' ? 'Lead Admin' : 'Team Member');
+              let notificationTitle = '';
+              let notificationBody = '';
+
+              if (msg.targetType === 'work_entry') {
+                const matchingEntry = entries.find((e) => e.id === msg.targetId);
+                if (matchingEntry && !targetLabel) {
+                  targetLabel = matchingEntry.company || (matchingEntry.taskText ? matchingEntry.taskText.slice(0, 30) : 'Work Entry');
+                }
+                if (!targetLabel) targetLabel = 'Work Entry';
+
+                const entryOwnerUid = matchingEntry?.userId || msg.targetUserId;
+                const entryOwnerName = (matchingEntry?.userName || msg.targetUserName)?.toLowerCase().trim();
+                const isMyEntry = 
+                  entryOwnerUid === myUid || 
+                  (Boolean(myEmail) && entryOwnerUid?.toLowerCase() === myEmail) || 
+                  (Boolean(entryOwnerName) && entryOwnerName === myName);
+
+                if (isAdmin) {
+                  // Admin is notified whenever a team member posts a message on a work entry
+                  if (msg.senderRole === 'member' || !isSender) {
+                    shouldNotify = true;
+                    notificationTitle = `💬 New Message from ${senderLabel}`;
+                    notificationBody = `Work Entry (${targetLabel}): "${msg.message.slice(0, 75)}${msg.message.length > 75 ? '...' : ''}"`;
+                  }
+                } else {
+                  // Team member is notified whenever admin (or lead) adds feedback on THEIR work entry
+                  if (isMyEntry) {
+                    shouldNotify = true;
+                    notificationTitle = `💬 Feedback from ${senderLabel} (${msg.senderRole === 'admin' ? 'Admin' : 'Lead'})`;
+                    notificationBody = `On your log (${targetLabel}): "${msg.message.slice(0, 75)}${msg.message.length > 75 ? '...' : ''}"`;
+                  }
+                }
+              } else if (msg.targetType === 'assigned_task') {
+                const matchingTask = tasks.find((t) => t.id === msg.targetId);
+                if (matchingTask && !targetLabel) {
+                  targetLabel = matchingTask.title ? `"${matchingTask.title.slice(0, 30)}"` : 'Task';
+                }
+                if (!targetLabel) targetLabel = 'Assigned Task';
+
+                const assigneeUid = matchingTask?.assignedTo || msg.targetUserId;
+                const assigneeName = (matchingTask?.assignedToName || msg.targetUserName)?.toLowerCase().trim();
+                const assignorUid = matchingTask?.assignedBy;
+
+                const isMyTask = 
+                  assigneeUid === myUid || 
+                  (Boolean(myEmail) && assigneeUid?.toLowerCase() === myEmail) || 
+                  (Boolean(assigneeName) && assigneeName === myName);
+
+                const didIAssignIt = 
+                  assignorUid === myUid || 
+                  (Boolean(myEmail) && assignorUid?.toLowerCase() === myEmail);
+
+                if (isAdmin) {
+                  // Admin is notified whenever a member posts on a task or asks questions
+                  if (msg.senderRole === 'member' || didIAssignIt || isMyTask) {
+                    shouldNotify = true;
+                    notificationTitle = `💬 Task Discussion from ${senderLabel}`;
+                    notificationBody = `Task (${targetLabel}): "${msg.message.slice(0, 75)}${msg.message.length > 75 ? '...' : ''}"`;
+                  }
+                } else {
+                  // Team member is notified whenever admin posts on their assigned task
+                  if (isMyTask) {
+                    shouldNotify = true;
+                    notificationTitle = `💬 Task Message from ${senderLabel} (${msg.senderRole === 'admin' ? 'Admin' : 'Lead'})`;
+                    notificationBody = `Task (${targetLabel}): "${msg.message.slice(0, 75)}${msg.message.length > 75 ? '...' : ''}"`;
+                  }
+                }
               }
-            } else if (msg.targetType === 'assigned_task') {
-              const matchingTask = tasks.find((t) => t.id === msg.targetId);
-              if (matchingTask && (matchingTask.assignedTo === userProfile.uid || matchingTask.assignedBy === userProfile.uid || isAdmin)) {
-                shouldNotify = true;
-                targetLabel = `"${matchingTask.title.slice(0, 30)}"`;
-                title = `💬 Discussion on Task`;
+
+              if (shouldNotify) {
+                notifiedMsgIdsRef.current.add(msg.id);
+
+                sendChromeNotification({
+                  title: notificationTitle,
+                  body: notificationBody,
+                  tag: `chat-msg-${msg.id}`,
+                  soundEnabled,
+                });
+
+                addToast({
+                  type: 'chat',
+                  title: notificationTitle,
+                  message: notificationBody,
+                });
               }
-            }
-
-            if (shouldNotify) {
-              const body = `${msg.senderName} (${msg.senderRole === 'admin' ? 'Lead Admin' : 'Member'}): "${msg.message.slice(0, 65)}${msg.message.length > 65 ? '...' : ''}"`;
-
-              sendChromeNotification({
-                title,
-                body,
-                tag: `chat-msg-${msg.id}`,
-                soundEnabled,
-              });
-
-              addToast({
-                type: 'chat',
-                title,
-                message: body,
-              });
             }
           }
-        }
-      });
+        });
+      }
     }
 
     // Update chat map
